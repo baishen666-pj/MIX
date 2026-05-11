@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MIX Skill Manifest",
+  "type": "object",
+  "required": ["name", "version", "description", "trigger", "handler"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Unique skill identifier (kebab-case)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "trigger": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Patterns that activate this skill"
+    },
+    "handler": {
+      "type": "string",
+      "enum": ["python", "typescript", "shell"],
+      "description": "Runtime for the skill handler"
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "required"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["string", "number", "boolean"] },
+          "required": { "type": "boolean" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "auto_evolve": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the learning engine can modify this skill"
+    }
+  }
+}

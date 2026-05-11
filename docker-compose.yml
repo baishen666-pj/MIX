@@ -1,0 +1,26 @@
+services:
+  engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.engine
+    ports:
+      - "18700:18700"
+    environment:
+      - MIX_CONFIG=/app/config.json
+    volumes:
+      - mix-data:/app/data
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    ports:
+      - "18789:18789"
+    environment:
+      - MIX_ENGINE_HOST=engine
+      - MIX_ENGINE_PORT=18700
+    depends_on:
+      - engine
+
+volumes:
+  mix-data:

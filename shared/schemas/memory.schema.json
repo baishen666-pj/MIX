@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MIX Memory Entry",
+  "type": "object",
+  "required": ["id", "type", "content", "created_at"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["fact", "preference", "context", "skill_result", "user_model"]
+    },
+    "content": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source": {
+      "type": "string",
+      "description": "Where this memory was created (channel, skill, system)"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "accessed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "access_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "importance": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

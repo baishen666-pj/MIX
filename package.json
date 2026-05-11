@@ -1,0 +1,23 @@
+{
+  "name": "mix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MIX - Unified AI Agent Platform. Merging Hermes + OpenClaw.",
+  "workspaces": [
+    "gateway",
+    "web"
+  ],
+  "scripts": {
+    "dev:gateway": "npm run dev -w mix-gateway",
+    "dev:engine": "cd engine && python -m uvicorn engine.main:app --reload --port 18700",
+    "dev": "concurrently \"npm run dev:engine\" \"npm run dev:gateway\"",
+    "build": "npm run build -w mix-gateway",
+    "start": "concurrently \"npm run dev:engine\" \"npm run dev:gateway\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
