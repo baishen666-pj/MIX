@@ -18,6 +18,7 @@ from engine.learning.nudge import CronScheduler
 from engine.tools.registry import ToolRegistry
 from engine.mcp.client import MCPClient
 from engine.middleware.rate_limit import RateLimiter, RateLimitMiddleware
+from engine.middleware.request_logging import RequestLoggingMiddleware
 
 log = logging.getLogger("mix")
 
@@ -32,6 +33,8 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.add_middleware(RequestLoggingMiddleware)
 
     if config.rate_limit.enabled:
         limiter = RateLimiter(

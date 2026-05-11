@@ -12,6 +12,7 @@ import { WeChatChannel } from "./channels/wechat.js";
 import { DmPairing, DmSecurityFilter } from "./security/dm-pairing.js";
 import type { DmPairingConfig } from "./security/acl.js";
 import { logger } from "./utils/logger.js";
+import { validate, chatRequestSchema, pairingApproveSchema, wsMessageSchema } from "./schemas.js";
 
 export async function createServer(config: GatewayConfig) {
   const app = Fastify({ logger: false });
@@ -112,7 +113,13 @@ export async function createServer(config: GatewayConfig) {
   });
 
   app.post("/api/chat", async (request, reply) => {
-    const body = request.body as { message: string; session_id?: string };
+    let body;
+    try {
+      body = validate(chatRequestSchema, request.body);
+    } catch (err) {
+      reply.code(400);
+      return { error: "Validation failed", details: String(err) };
+    }
     try {
       const response = await bridge.chat({
         message: body.message,
@@ -125,8 +132,14 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
-  app.post("/api/pairing/approve", async (request) => {
-    const body = request.body as { channel: string; code: string };
+  app.post("/api/pairing/approve", async (request, reply) => {
+    let body;
+    try {
+      body = validate(pairingApproveSchema, request.body);
+    } catch (err) {
+      reply.code(400);
+      return { error: "Validation failed", details: String(err) };
+    }
     const approved = pairing.approvePairing(body.channel, body.code);
     return { approved };
   });
@@ -138,7 +151,13 @@ export async function createServer(config: GatewayConfig) {
   app.register(async function (fastify) {
     fastify.get("/ws/chat", { websocket: true }, (socket, _req) => {
       socket.on("message", async (raw: Buffer) => {
-        const data = JSON.parse(raw.toString());
+        let data;
+        try {
+          data = validate(wsMessageSchema, JSON.parse(raw.toString()));
+        } catch (err) {
+          socket.send(JSON.stringify({ error: "Invalid message format", details: String(err) }));
+          return;
+        }
         try {
           for await (const chunk of bridge.chatStream({
             message: data.message,
