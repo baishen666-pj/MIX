@@ -8,6 +8,7 @@ import { WebChatChannel } from "./channels/webchat.js";
 import { TelegramChannel } from "./channels/telegram.js";
 import { DiscordChannel } from "./channels/discord.js";
 import { SlackChannel } from "./channels/slack.js";
+import { WeChatChannel } from "./channels/wechat.js";
 import { DmPairing, DmSecurityFilter } from "./security/dm-pairing.js";
 import type { DmPairingConfig } from "./security/acl.js";
 import { logger } from "./utils/logger.js";
@@ -42,6 +43,12 @@ export async function createServer(config: GatewayConfig) {
   if (slackToken) {
     channels.register(new SlackChannel({ botToken: slackToken }));
     logger.info("Slack channel enabled");
+  }
+
+  const wechatWebhook = process.env.WECHAT_WEBHOOK_URL;
+  if (wechatWebhook) {
+    channels.register(new WeChatChannel({ webhookUrl: wechatWebhook }));
+    logger.info("WeChat channel enabled");
   }
 
   const dmConfig: DmPairingConfig = {

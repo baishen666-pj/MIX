@@ -35,6 +35,12 @@ CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN
     INSERT INTO memories_fts(memories_fts, rowid, id, content, tags, source)
     VALUES ('delete', old.rowid, old.id, old.content, old.tags, old.source);
 END;
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    data TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -127,3 +133,39 @@ class MemoryStore:
             access_count=row[8],
             importance=row[9],
         )
+
+    # --- Session Persistence ---
+
+    async def save_session(self, session_id: str, data: dict) -> None:
+        assert self._db is not None
+        import json
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            "INSERT OR REPLACE INTO sessions (id, data, updated_at) VALUES (?, ?, ?)",
+            (session_id, json.dumps(data), now),
+        )
+        await self._db.commit()
+
+    async def load_session(self, session_id: str) -> dict | None:
+        assert self._db is not None
+        import json
+        cursor = await self._db.execute(
+            "SELECT data FROM sessions WHERE id = ?", (session_id,)
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        return json.loads(row[0])
+
+    async def list_sessions(self) -> list[dict]:
+        assert self._db is not None
+        cursor = await self._db.execute("SELECT id, updated_at FROM sessions ORDER BY updated_at DESC")
+        rows = await cursor.fetchall()
+        return [{"id": r[0], "updated_at": r[1]} for r in rows]
+
+    async def delete_session(self, session_id: str) -> bool:
+        assert self._db is not None
+        cursor = await self._db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        await self._db.commit()
+        return cursor.rowcount > 0

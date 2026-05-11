@@ -20,6 +20,7 @@ from engine.skills.registry import SkillRegistry
 from engine.skills.loader import SkillLoader
 from engine.learning.loop import LearningLoop
 from engine.learning.nudge import CronScheduler, CronJob
+from engine.tools.registry import ToolRegistry
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ _skill_registry: SkillRegistry | None = None
 _skill_loader: SkillLoader | None = None
 _learning: LearningLoop | None = None
 _cron: CronScheduler | None = None
+_tools: ToolRegistry | None = None
 
 
 def init_routes(
@@ -38,13 +40,14 @@ def init_routes(
     learning: LearningLoop | None = None,
     cron: CronScheduler | None = None,
 ) -> None:
-    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron
+    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools
     _agent_loop = agent_loop
     _memory = memory
     _skill_registry = skill_registry
     _skill_loader = SkillLoader()
     _learning = learning
     _cron = cron
+    _tools = ToolRegistry()
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -198,3 +201,20 @@ async def cron_delete(job_id: str):
         return {"error": "Cron scheduler not initialized"}
     deleted = _cron.remove_job(job_id)
     return {"deleted": deleted}
+
+
+# --- Tools ---
+
+@router.get("/tools")
+async def tools_list():
+    if _tools is None:
+        return {"tools": []}
+    return {"tools": _tools.list_tools(), "definitions": _tools.get_definitions()}
+
+
+@router.post("/tools/{tool_name}/execute")
+async def tool_execute(tool_name: str, body: dict | None = None):
+    if _tools is None:
+        return {"error": "Tool registry not initialized"}
+    result = await _tools.execute(tool_name, **(body or {}))
+    return result.to_dict()
