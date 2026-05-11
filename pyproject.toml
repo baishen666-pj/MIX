@@ -33,6 +33,7 @@ include = ["engine*"]
 
 [project.scripts]
 mix-engine = "engine.main:main"
+mix = "engine.cli:main"
 
 [tool.ruff]
 target-version = "py311"

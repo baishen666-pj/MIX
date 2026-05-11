@@ -7,6 +7,7 @@ import { ChannelRegistry } from "./channels/registry.js";
 import { WebChatChannel } from "./channels/webchat.js";
 import { TelegramChannel } from "./channels/telegram.js";
 import { DiscordChannel } from "./channels/discord.js";
+import { SlackChannel } from "./channels/slack.js";
 import { DmPairing, DmSecurityFilter } from "./security/dm-pairing.js";
 import type { DmPairingConfig } from "./security/acl.js";
 import { logger } from "./utils/logger.js";
@@ -35,6 +36,12 @@ export async function createServer(config: GatewayConfig) {
   if (discordToken) {
     channels.register(new DiscordChannel({ botToken: discordToken }));
     logger.info("Discord channel enabled");
+  }
+
+  const slackToken = process.env.SLACK_BOT_TOKEN;
+  if (slackToken) {
+    channels.register(new SlackChannel({ botToken: slackToken }));
+    logger.info("Slack channel enabled");
   }
 
   const dmConfig: DmPairingConfig = {
