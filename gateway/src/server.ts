@@ -5,6 +5,10 @@ import type { GatewayConfig } from "./utils/config.js";
 import { EngineBridge } from "./bridge.js";
 import { ChannelRegistry } from "./channels/registry.js";
 import { WebChatChannel } from "./channels/webchat.js";
+import { TelegramChannel } from "./channels/telegram.js";
+import { DiscordChannel } from "./channels/discord.js";
+import { DmPairing, DmSecurityFilter } from "./security/dm-pairing.js";
+import type { DmPairingConfig } from "./security/acl.js";
 import { logger } from "./utils/logger.js";
 
 export async function createServer(config: GatewayConfig) {
@@ -21,15 +25,54 @@ export async function createServer(config: GatewayConfig) {
   const webchat = new WebChatChannel();
   channels.register(webchat);
 
+  const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (telegramToken) {
+    channels.register(new TelegramChannel({ botToken: telegramToken }));
+    logger.info("Telegram channel enabled");
+  }
+
+  const discordToken = process.env.DISCORD_BOT_TOKEN;
+  if (discordToken) {
+    channels.register(new DiscordChannel({ botToken: discordToken }));
+    logger.info("Discord channel enabled");
+  }
+
+  const dmConfig: DmPairingConfig = {
+    policy: (process.env.DM_POLICY as DmPairingConfig["policy"]) || "pairing",
+    allowedUsers: process.env.ALLOWED_USERS?.split(",").filter(Boolean) || [],
+  };
+  const pairing = new DmPairing(dmConfig);
+  const securityFilter = new DmSecurityFilter(pairing);
+
   channels.onMessage(async (msg) => {
     logger.info(`Message from ${msg.channel}: ${msg.userId}`);
+
+    const security = securityFilter.filter(msg);
+    if (!security.allowed) {
+      if (security.response) {
+        await channels.send({
+          ...msg,
+          content: security.response,
+          metadata: { ...msg.metadata, system: true },
+        });
+      }
+      return;
+    }
+
     try {
       const response = await bridge.chat({
         message: msg.content,
         session_id: msg.metadata.sessionId as string | undefined,
         channel: msg.channel,
       });
-      logger.info(`Response: ${response.content.slice(0, 100)}...`);
+      await channels.send({
+        id: `resp-${response.id}`,
+        channel: msg.channel,
+        userId: "mix",
+        content: response.content,
+        metadata: { ...msg.metadata, originalMsgId: msg.id },
+        timestamp: new Date().toISOString(),
+      });
     } catch (err) {
       logger.error("Engine error", err);
     }
@@ -38,9 +81,19 @@ export async function createServer(config: GatewayConfig) {
   app.get("/api/health", async () => {
     try {
       const engine = await bridge.health();
-      return { status: "ok", gateway: "mix-gateway", engine };
+      return {
+        status: "ok",
+        gateway: "mix-gateway",
+        engine,
+        channels: channels.listChannels(),
+      };
     } catch {
-      return { status: "degraded", gateway: "mix-gateway", engine: "unreachable" };
+      return {
+        status: "degraded",
+        gateway: "mix-gateway",
+        engine: "unreachable",
+        channels: channels.listChannels(),
+      };
     }
   });
 
@@ -56,6 +109,16 @@ export async function createServer(config: GatewayConfig) {
       reply.code(502);
       return { error: "Engine unreachable", details: String(err) };
     }
+  });
+
+  app.post("/api/pairing/approve", async (request) => {
+    const body = request.body as { channel: string; code: string };
+    const approved = pairing.approvePairing(body.channel, body.code);
+    return { approved };
+  });
+
+  app.get("/api/pairing/pending", async () => {
+    return { pending: pairing.getPendingPairings() };
   });
 
   app.register(async function (fastify) {
