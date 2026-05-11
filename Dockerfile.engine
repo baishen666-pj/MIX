@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY pyproject.toml .
+COPY engine/ engine/
+COPY skills/ skills/
+
+RUN pip install --no-cache-dir -e ".[dev]"
+
+EXPOSE 18700
+
+CMD ["python", "-m", "uvicorn", "engine.main:app", "--host", "0.0.0.0", "--port", "18700"]

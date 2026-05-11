@@ -11,12 +11,15 @@ from engine.api.schemas import (
     MemorySearchRequest,
     MemoryEntryResponse,
     SkillExecuteRequest,
+    CronScheduleRequest,
 )
 from engine.agent.loop import AgentLoop
 from engine.memory.store import MemoryStore
 from engine.memory.types import MemoryType
 from engine.skills.registry import SkillRegistry
 from engine.skills.loader import SkillLoader
+from engine.learning.loop import LearningLoop
+from engine.learning.nudge import CronScheduler, CronJob
 
 router = APIRouter()
 
@@ -24,18 +27,24 @@ _agent_loop: AgentLoop | None = None
 _memory: MemoryStore | None = None
 _skill_registry: SkillRegistry | None = None
 _skill_loader: SkillLoader | None = None
+_learning: LearningLoop | None = None
+_cron: CronScheduler | None = None
 
 
 def init_routes(
     agent_loop: AgentLoop,
     memory: MemoryStore | None = None,
     skill_registry: SkillRegistry | None = None,
+    learning: LearningLoop | None = None,
+    cron: CronScheduler | None = None,
 ) -> None:
-    global _agent_loop, _memory, _skill_registry, _skill_loader
+    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron
     _agent_loop = agent_loop
     _memory = memory
     _skill_registry = skill_registry
     _skill_loader = SkillLoader()
+    _learning = learning
+    _cron = cron
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -51,6 +60,9 @@ async def health():
 async def chat(req: ChatRequest):
     assert _agent_loop is not None
     result = await _agent_loop.chat(req.message, session_id=req.session_id)
+    if _learning:
+        await _learning.record_interaction("user", req.message, session_id=req.session_id)
+        await _learning.record_interaction("assistant", result["content"], session_id=req.session_id)
     return ChatResponse(**result)
 
 
@@ -70,9 +82,13 @@ async def stream_chat(ws: WebSocket):
                 await ws.send_text(json.dumps(chunk))
                 if chunk.get("done"):
                     break
+            if _learning:
+                await _learning.record_interaction("user", message, session_id=session_id)
     except WebSocketDisconnect:
         pass
 
+
+# --- Memory ---
 
 @router.post("/memory/search", response_model=list[MemoryEntryResponse])
 async def memory_search(req: MemorySearchRequest):
@@ -112,6 +128,8 @@ async def memory_delete(entry_id: str):
     return {"deleted": deleted}
 
 
+# --- Skills ---
+
 @router.post("/skills/execute")
 async def skill_execute(req: SkillExecuteRequest):
     assert _skill_registry is not None
@@ -128,3 +146,55 @@ async def skills_list():
     if _skill_registry is None:
         return {"skills": []}
     return {"skills": _skill_registry.list_skills()}
+
+
+# --- Learning ---
+
+@router.get("/learning/insights")
+async def learning_insights():
+    if _learning is None:
+        return {"insights": []}
+    return {"insights": _learning.get_pending_insights()}
+
+
+@router.post("/learning/insights/{insight_id}/promote")
+async def promote_insight(insight_id: str):
+    if _learning is None:
+        return {"error": "Learning not initialized"}
+    manifest = await _learning.promote_insight(insight_id)
+    if manifest is None:
+        return {"error": "Insight not found or no code to promote"}
+    return {"status": "ok", "skill": manifest.name}
+
+
+@router.delete("/learning/insights/{insight_id}")
+async def dismiss_insight(insight_id: str):
+    if _learning is None:
+        return {"error": "Learning not initialized"}
+    dismissed = _learning.dismiss_insight(insight_id)
+    return {"dismissed": dismissed}
+
+
+# --- Cron ---
+
+@router.post("/cron/schedule")
+async def cron_schedule(req: CronScheduleRequest):
+    if _cron is None:
+        return {"error": "Cron scheduler not initialized"}
+    job = _cron.add_job(name=req.name, cron=req.cron, message=req.message, channel=req.channel)
+    return {"status": "ok", "job": {"id": job.id, "name": job.name, "cron": job.cron}}
+
+
+@router.get("/cron/jobs")
+async def cron_list():
+    if _cron is None:
+        return {"jobs": []}
+    return {"jobs": _cron.list_jobs()}
+
+
+@router.delete("/cron/jobs/{job_id}")
+async def cron_delete(job_id: str):
+    if _cron is None:
+        return {"error": "Cron scheduler not initialized"}
+    deleted = _cron.remove_job(job_id)
+    return {"deleted": deleted}

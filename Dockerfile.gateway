@@ -1,0 +1,14 @@
+FROM node:24-slim
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY gateway/ gateway/
+
+RUN npm ci --production
+
+RUN npm run build -w mix-gateway 2>/dev/null || true
+
+EXPOSE 18789
+
+CMD ["node", "gateway/dist/index.js"]
