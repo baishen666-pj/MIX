@@ -14,6 +14,7 @@ from engine.memory.store import MemoryStore
 from engine.skills.registry import SkillRegistry
 from engine.learning.loop import LearningLoop
 from engine.learning.nudge import CronScheduler
+from engine.tools.registry import ToolRegistry
 
 log = logging.getLogger("mix")
 
@@ -30,7 +31,8 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     )
 
     memory = MemoryStore(config.memory.db_path)
-    agent_loop = AgentLoop(config, memory=memory)
+    tools = ToolRegistry()
+    agent_loop = AgentLoop(config, memory=memory, tools=tools)
     skill_registry = SkillRegistry(skills_dir=Path("skills"))
     skill_count = skill_registry.load_all()
     learning = LearningLoop(memory, skill_registry)
@@ -46,6 +48,7 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
         cron.start()
         if skill_count > 0:
             log.info("Loaded %d skill(s)", skill_count)
+        log.info("Tools: %s", ", ".join(tools.list_tools()))
         log.info("Learning loop and cron scheduler started")
 
     @app.on_event("shutdown")
