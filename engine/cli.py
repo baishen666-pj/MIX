@@ -87,12 +87,22 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     try:
         import httpx
         import asyncio
+
         async def check():
             async with httpx.AsyncClient() as client:
-                return await client.get(f"http://{config.engine.host}:{config.engine.port}/api/health")
-        # Skip engine check if not running
+                resp = await client.get(
+                    f"http://{config.engine.host}:{config.engine.port}/api/health",
+                    timeout=3,
+                )
+                return resp
+
+        resp = asyncio.get_event_loop().run_until_complete(check())
+        if resp.status_code != 200:
+            issues.append(f"Engine health check failed: HTTP {resp.status_code}")
+        else:
+            print("  Engine: responding")
     except Exception:
-        pass
+        print("  Engine: not running (this is ok if not started)")
 
     if issues:
         print("Issues found:\n")

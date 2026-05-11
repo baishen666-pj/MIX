@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncIterator
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from engine.api.schemas import (
     ChatRequest,
     ChatResponse,
@@ -33,6 +33,7 @@ _cron: CronScheduler | None = None
 _tools: ToolRegistry | None = None
 _agent_router: Any = None
 _mcp: Any = None
+_api_key: str = ""
 
 
 def init_routes(
@@ -43,8 +44,9 @@ def init_routes(
     cron: CronScheduler | None = None,
     agent_router: Any = None,
     mcp: Any = None,
+    api_key: str = "",
 ) -> None:
-    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp
+    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp, _api_key
     _agent_loop = agent_loop
     _memory = memory
     _skill_registry = skill_registry
@@ -54,6 +56,7 @@ def init_routes(
     _tools = ToolRegistry()
     _agent_router = agent_router
     _mcp = mcp
+    _api_key = api_key
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -67,7 +70,8 @@ async def health():
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    assert _agent_loop is not None
+    if _agent_loop is None:
+        raise HTTPException(503, "Agent loop not initialized")
     result = await _agent_loop.chat(req.message, session_id=req.session_id)
     if _learning:
         await _learning.record_interaction("user", req.message, session_id=req.session_id)
@@ -78,7 +82,9 @@ async def chat(req: ChatRequest):
 @router.websocket("/ws/stream")
 async def stream_chat(ws: WebSocket):
     await ws.accept()
-    assert _agent_loop is not None
+    if _agent_loop is None:
+        await ws.close(code=1011, reason="Agent loop not initialized")
+        return
 
     try:
         while True:
@@ -101,7 +107,8 @@ async def stream_chat(ws: WebSocket):
 
 @router.post("/memory/search", response_model=list[MemoryEntryResponse])
 async def memory_search(req: MemorySearchRequest):
-    assert _memory is not None
+    if _memory is None:
+        raise HTTPException(503, "Memory store not initialized")
     entries = await _memory.search(req.query, limit=req.limit)
     return [
         MemoryEntryResponse(
@@ -117,7 +124,8 @@ async def memory_search(req: MemorySearchRequest):
 
 @router.get("/memory/{entry_id}", response_model=MemoryEntryResponse | None)
 async def memory_get(entry_id: str):
-    assert _memory is not None
+    if _memory is None:
+        raise HTTPException(503, "Memory store not initialized")
     entry = await _memory.get(entry_id)
     if entry is None:
         return None
@@ -132,7 +140,8 @@ async def memory_get(entry_id: str):
 
 @router.delete("/memory/{entry_id}")
 async def memory_delete(entry_id: str):
-    assert _memory is not None
+    if _memory is None:
+        raise HTTPException(503, "Memory store not initialized")
     deleted = await _memory.delete(entry_id)
     return {"deleted": deleted}
 
@@ -141,8 +150,8 @@ async def memory_delete(entry_id: str):
 
 @router.post("/skills/execute")
 async def skill_execute(req: SkillExecuteRequest):
-    assert _skill_registry is not None
-    assert _skill_loader is not None
+    if _skill_registry is None or _skill_loader is None:
+        raise HTTPException(503, "Skills system not initialized")
     manifest = _skill_registry.get(req.skill_name)
     if manifest is None:
         return {"error": f"Skill '{req.skill_name}' not found"}
@@ -269,7 +278,9 @@ async def voice_tts(body: dict):
         return {"error": "text is required"}
     try:
         from engine.voice.tts import synthesize
-        audio_path = await synthesize(text, voice=body.get("voice", "alloy"))
+        audio_path = await synthesize(
+            text, voice=body.get("voice", "alloy"), api_key=_api_key
+        )
         return {"status": "ok", "path": audio_path}
     except Exception as e:
         return {"error": str(e)}
@@ -282,7 +293,7 @@ async def voice_stt(body: dict):
         return {"error": "path is required"}
     try:
         from engine.voice.stt import transcribe
-        text = await transcribe(audio_path)
+        text = await transcribe(audio_path, api_key=_api_key)
         return {"status": "ok", "text": text}
     except Exception as e:
         return {"error": str(e)}

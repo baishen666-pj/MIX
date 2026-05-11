@@ -10,10 +10,12 @@ async def synthesize(
     voice: str = "alloy",
     model: str = "tts-1",
     output_dir: str | None = None,
+    api_key: str | None = None,
 ) -> str:
+    import os
     from openai import AsyncOpenAI
 
-    client = AsyncOpenAI()
+    client = AsyncOpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
 
     out_dir = Path(output_dir) if output_dir else Path(tempfile.gettempdir()) / "mix_tts"
     out_dir.mkdir(parents=True, exist_ok=True)

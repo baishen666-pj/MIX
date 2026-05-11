@@ -135,6 +135,15 @@ class AnthropicProvider(LLMProvider):
         }
         if system_msg:
             create_kwargs["system"] = system_msg
+        if tools:
+            create_kwargs["tools"] = [
+                {
+                    "name": t["function"]["name"],
+                    "description": t["function"].get("description", ""),
+                    "input_schema": json.loads(t["function"].get("parameters", "{}")),
+                }
+                for t in tools
+            ]
 
         response = await client.messages.create(**create_kwargs)
 
@@ -180,6 +189,15 @@ class AnthropicProvider(LLMProvider):
         }
         if system_msg:
             create_kwargs["system"] = system_msg
+        if tools:
+            create_kwargs["tools"] = [
+                {
+                    "name": t["function"]["name"],
+                    "description": t["function"].get("description", ""),
+                    "input_schema": json.loads(t["function"].get("parameters", "{}")),
+                }
+                for t in tools
+            ]
 
         async with client.messages.stream(**create_kwargs) as stream:
             async for text in stream.text_stream:

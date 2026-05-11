@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable, Awaitable
+
+log = logging.getLogger("mix.cron")
 
 
 @dataclass
@@ -117,5 +120,5 @@ class CronScheduler:
                         try:
                             await self._handler(job)
                         except Exception:
-                            pass
+                            log.exception("Cron job %s (%s) failed", job.name, job.id)
             await asyncio.sleep(60)

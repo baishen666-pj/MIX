@@ -55,7 +55,7 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     agent_router = AgentRouter(config, memory)
     mcp = MCPClient()
 
-    init_routes(agent_loop, memory, skill_registry, learning, cron, agent_router, mcp)
+    init_routes(agent_loop, memory, skill_registry, learning, cron, agent_router, mcp, api_key=config.llm.api_key)
     app.include_router(router, prefix="/api")
 
     @app.on_event("startup")
