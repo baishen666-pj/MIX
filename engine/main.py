@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from engine.agent.loop import AgentLoop
+from engine.agent.router import AgentRouter
 from engine.api.routes import router, init_routes
 from engine.config import MixConfig
 from engine.memory.store import MemoryStore
@@ -15,6 +16,7 @@ from engine.skills.registry import SkillRegistry
 from engine.learning.loop import LearningLoop
 from engine.learning.nudge import CronScheduler
 from engine.tools.registry import ToolRegistry
+from engine.mcp.client import MCPClient
 
 log = logging.getLogger("mix")
 
@@ -37,8 +39,10 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     skill_count = skill_registry.load_all()
     learning = LearningLoop(memory, skill_registry)
     cron = CronScheduler()
+    agent_router = AgentRouter(config, memory)
+    mcp = MCPClient()
 
-    init_routes(agent_loop, memory, skill_registry, learning, cron)
+    init_routes(agent_loop, memory, skill_registry, learning, cron, agent_router, mcp)
     app.include_router(router, prefix="/api")
 
     @app.on_event("startup")
@@ -49,7 +53,7 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
         if skill_count > 0:
             log.info("Loaded %d skill(s)", skill_count)
         log.info("Tools: %s", ", ".join(tools.list_tools()))
-        log.info("Learning loop and cron scheduler started")
+        log.info("Agent router, MCP client, learning loop, and cron started")
 
     @app.on_event("shutdown")
     async def shutdown():

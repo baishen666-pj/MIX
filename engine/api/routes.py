@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from engine.api.schemas import (
@@ -31,6 +31,8 @@ _skill_loader: SkillLoader | None = None
 _learning: LearningLoop | None = None
 _cron: CronScheduler | None = None
 _tools: ToolRegistry | None = None
+_agent_router: Any = None
+_mcp: Any = None
 
 
 def init_routes(
@@ -39,8 +41,10 @@ def init_routes(
     skill_registry: SkillRegistry | None = None,
     learning: LearningLoop | None = None,
     cron: CronScheduler | None = None,
+    agent_router: Any = None,
+    mcp: Any = None,
 ) -> None:
-    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools
+    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp
     _agent_loop = agent_loop
     _memory = memory
     _skill_registry = skill_registry
@@ -48,6 +52,8 @@ def init_routes(
     _learning = learning
     _cron = cron
     _tools = ToolRegistry()
+    _agent_router = agent_router
+    _mcp = mcp
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -218,3 +224,65 @@ async def tool_execute(tool_name: str, body: dict | None = None):
         return {"error": "Tool registry not initialized"}
     result = await _tools.execute(tool_name, **(body or {}))
     return result.to_dict()
+
+
+# --- Agents ---
+
+@router.get("/agents")
+async def agents_list():
+    from engine.agent.router import AgentRouter
+    if _agent_router is None:
+        return {"agents": [{"name": "main", "channels": [], "model": "default"}]}
+    return {"agents": _agent_router.list_agents()}
+
+
+# --- MCP ---
+
+@router.get("/mcp/servers")
+async def mcp_servers():
+    if _mcp is None:
+        return {"servers": []}
+    return {"servers": _mcp.list_servers(), "tools": _mcp.list_tools()}
+
+
+@router.post("/mcp/servers")
+async def mcp_register(body: dict):
+    if _mcp is None:
+        return {"error": "MCP not initialized"}
+    from engine.mcp.client import MCPServerConfig
+    config = MCPServerConfig(
+        name=body.get("name", ""),
+        url=body.get("url", ""),
+        api_key=body.get("api_key", ""),
+    )
+    _mcp.register_server(config)
+    tools = await _mcp.discover_tools(config.name)
+    return {"status": "ok", "server": config.name, "tools_discovered": len(tools)}
+
+
+# --- Voice ---
+
+@router.post("/voice/tts")
+async def voice_tts(body: dict):
+    text = body.get("text", "")
+    if not text:
+        return {"error": "text is required"}
+    try:
+        from engine.voice.tts import synthesize
+        audio_path = await synthesize(text, voice=body.get("voice", "alloy"))
+        return {"status": "ok", "path": audio_path}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.post("/voice/stt")
+async def voice_stt(body: dict):
+    audio_path = body.get("path", "")
+    if not audio_path:
+        return {"error": "path is required"}
+    try:
+        from engine.voice.stt import transcribe
+        text = await transcribe(audio_path)
+        return {"status": "ok", "text": text}
+    except Exception as e:
+        return {"error": str(e)}
