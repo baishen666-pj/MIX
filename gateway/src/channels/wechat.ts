@@ -1,4 +1,5 @@
 import type { ChannelAdapter, ChannelMessage } from "./types.js";
+import { logger } from "../utils/logger.js";
 
 type MessageHandler = (msg: ChannelMessage) => void;
 
@@ -25,7 +26,18 @@ export class WeChatChannel implements ChannelAdapter {
   }
 
   async start(): Promise<void> {
-    if (!this.config.webhookUrl && !this.config.corpId) return;
+    if (this.config.webhookUrl) {
+      logger.info("WeChat webhook mode active: %s", this.config.webhookUrl);
+      return;
+    }
+    if (this.config.corpId && this.config.secret && this.config.agentId) {
+      const token = await this.getAccessToken();
+      if (token) {
+        logger.info("WeChat app mode active (corpId: %s)", this.config.corpId);
+      } else {
+        logger.error("WeChat app mode: failed to obtain access token");
+      }
+    }
   }
 
   async stop(): Promise<void> {

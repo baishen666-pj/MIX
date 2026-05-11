@@ -1,18 +1,6 @@
-export type ChannelType =
-  | "telegram"
-  | "discord"
-  | "slack"
-  | "whatsapp"
-  | "wechat"
-  | "signal"
-  | "irc"
-  | "webchat"
-  | "google_chat"
-  | "imessage"
-  | "teams"
-  | "matrix"
-  | "feishu"
-  | "line";
+import type { ChannelType } from "../../../shared/protocols/messages";
+
+export type { ChannelType };
 
 export interface ChannelMessage {
   id: string;

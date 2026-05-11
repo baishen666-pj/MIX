@@ -47,9 +47,20 @@ export async function createServer(config: GatewayConfig) {
   }
 
   const wechatWebhook = process.env.WECHAT_WEBHOOK_URL;
+  let wechatAdapter: WeChatChannel | undefined;
   if (wechatWebhook) {
-    channels.register(new WeChatChannel({ webhookUrl: wechatWebhook }));
+    wechatAdapter = new WeChatChannel({ webhookUrl: wechatWebhook });
+    channels.register(wechatAdapter);
     logger.info("WeChat channel enabled");
+  }
+
+  const wechatCorpId = process.env.WECHAT_CORP_ID;
+  const wechatAgentId = process.env.WECHAT_AGENT_ID;
+  const wechatSecret = process.env.WECHAT_SECRET;
+  if (!wechatWebhook && wechatCorpId && wechatAgentId && wechatSecret) {
+    wechatAdapter = new WeChatChannel({ webhookUrl: "", corpId: wechatCorpId, agentId: wechatAgentId, secret: wechatSecret });
+    channels.register(wechatAdapter);
+    logger.info("WeChat app channel enabled");
   }
 
   const dmConfig: DmPairingConfig = {
@@ -172,6 +183,14 @@ export async function createServer(config: GatewayConfig) {
       });
     });
   });
+
+  if (wechatAdapter) {
+    app.post("/api/wechat/webhook", async (request, reply) => {
+      const body = request.body as Record<string, unknown>;
+      wechatAdapter!.receiveWebhook(body);
+      return { status: "ok" };
+    });
+  }
 
   return { app, channels, bridge };
 }

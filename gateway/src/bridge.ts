@@ -1,30 +1,11 @@
+import type { ChatRequest, ChatResponse, StreamChunk } from "../../shared/protocols/messages";
+
 export interface BridgeConfig {
   engineHost: string;
   enginePort: number;
 }
 
-export interface ChatRequest {
-  message: string;
-  session_id?: string;
-  channel?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface ChatResponse {
-  id: string;
-  session_id: string;
-  content: string;
-  tool_calls?: unknown[];
-  metadata: Record<string, unknown>;
-}
-
-export interface StreamChunk {
-  id: string;
-  session_id: string;
-  delta: string;
-  done: boolean;
-  tool_calls?: unknown[];
-}
+export type { ChatRequest, ChatResponse, StreamChunk };
 
 export class EngineBridge {
   private baseUrl: string;

@@ -67,6 +67,8 @@ mix start
 
 ## API Reference
 
+The **Gateway** (port 18789) is the public entry point for chat and WebSocket. The **Engine** (port 18700) exposes internal APIs for memory, skills, cron, and learning.
+
 ### Chat
 
 ```bash
@@ -125,12 +127,12 @@ curl -X POST http://localhost:18700/api/learning/insights/<id>/promote
 | Channel | Status | Config |
 |---------|--------|--------|
 | WebChat | Working | Built-in |
-| Telegram | Ready | `TELEGRAM_BOT_TOKEN` |
-| Discord | Ready | `DISCORD_BOT_TOKEN` |
-| Slack | Ready | `SLACK_BOT_TOKEN` |
+| Telegram | Working | `TELEGRAM_BOT_TOKEN` |
+| Discord | Working | `DISCORD_BOT_TOKEN` |
+| Slack | Working | `SLACK_BOT_TOKEN` |
+| WeChat | Working | `WECHAT_WEBHOOK_URL` (webhook) or `WECHAT_CORP_ID`+`WECHAT_AGENT_ID`+`WECHAT_SECRET` (app) |
 | IRC | Planned | - |
 | WhatsApp | Planned | - |
-| WeChat | Planned | - |
 
 ## Creating Skills
 
@@ -172,12 +174,15 @@ Key config values in `~/.mix/config.json` or `.env`:
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `llm.provider` | openrouter | LLM provider |
+| `llm.provider` | openrouter | LLM provider (openrouter/openai/anthropic/nvidia/local) |
 | `llm.model` | openai/gpt-4o | Model to use |
 | `llm.api_key` | - | API key |
-| `engine.port` | 18700 | Engine listen port |
-| `gateway.port` | 18789 | Gateway listen port |
+| `engine.port` | 18700 | Engine listen port (internal APIs) |
+| `gateway.port` | 18789 | Gateway listen port (chat entry point) |
 | `security.dm_policy` | pairing | DM security: pairing/open/closed |
+| `rate_limit.enabled` | true | Enable rate limiting |
+| `rate_limit.requests_per_minute` | 60 | Max requests per minute per IP |
+| `rate_limit.requests_per_hour` | 1000 | Max requests per hour per IP |
 
 ## Docker
 
