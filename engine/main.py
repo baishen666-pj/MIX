@@ -17,6 +17,7 @@ from engine.learning.loop import LearningLoop
 from engine.learning.nudge import CronScheduler
 from engine.tools.registry import ToolRegistry
 from engine.mcp.client import MCPClient
+from engine.middleware.rate_limit import RateLimiter, RateLimitMiddleware
 
 log = logging.getLogger("mix")
 
@@ -31,6 +32,18 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    if config.rate_limit.enabled:
+        limiter = RateLimiter(
+            requests_per_minute=config.rate_limit.requests_per_minute,
+            requests_per_hour=config.rate_limit.requests_per_hour,
+        )
+        app.add_middleware(RateLimitMiddleware, limiter=limiter)
+        log.info(
+            "Rate limiting enabled: %d/min, %d/hour",
+            config.rate_limit.requests_per_minute,
+            config.rate_limit.requests_per_hour,
+        )
 
     memory = MemoryStore(config.memory.db_path)
     tools = ToolRegistry()

@@ -43,12 +43,20 @@ class SecurityConfig:
 
 
 @dataclass
+class RateLimitConfig:
+    enabled: bool = True
+    requests_per_minute: int = 60
+    requests_per_hour: int = 1000
+
+
+@dataclass
 class MixConfig:
     engine: EngineConfig = field(default_factory=EngineConfig)
     gateway: GatewayConfig = field(default_factory=GatewayConfig)
     llm: ProviderConfig = field(default_factory=ProviderConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     security: SecurityConfig = field(default_factory=SecurityConfig)
+    rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
 
     @classmethod
     def load(cls, path: Path | None = None) -> MixConfig:
@@ -75,6 +83,8 @@ class MixConfig:
             cfg.memory = MemoryConfig(**mem)
         if "security" in data:
             cfg.security = SecurityConfig(**data["security"])
+        if "rate_limit" in data:
+            cfg.rate_limit = RateLimitConfig(**data["rate_limit"])
         return cfg
 
     def save(self, path: Path | None = None) -> None:
@@ -107,5 +117,10 @@ class MixConfig:
             "security": {
                 "dm_policy": self.security.dm_policy,
                 "allowed_users": self.security.allowed_users,
+            },
+            "rate_limit": {
+                "enabled": self.rate_limit.enabled,
+                "requests_per_minute": self.rate_limit.requests_per_minute,
+                "requests_per_hour": self.rate_limit.requests_per_hour,
             },
         }
