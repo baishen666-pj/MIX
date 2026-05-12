@@ -1,15 +1,17 @@
-.PHONY: install dev engine gateway test test-engine test-gateway clean setup
+.PHONY: install dev engine gateway test test-engine test-gateway test-web clean setup docker-up docker-down docker-build docker-logs
 
 PYTHON ?= python3
 NODE ?= node
 PIP ?= pip
 NPM ?= npm
+DOCKER ?= docker
 
 install:
-	$(PIP) install -e "./engine[dev]"
+	$(PIP) install -e ".[dev]"
 	$(NPM) install
 
-dev: engine gateway
+dev:
+	$(NPM) run dev
 
 engine:
 	cd engine && $(PYTHON) -m uvicorn engine.main:app --reload --host 127.0.0.1 --port 18700
@@ -17,16 +19,16 @@ engine:
 gateway:
 	$(NPM) run dev -w mix-gateway
 
-test:
-	cd engine && $(PYTHON) -m pytest --cov=engine --cov-report=term-missing
-	$(NPM) run test -w mix-gateway
-	$(NPM) run typecheck -w mix-gateway
+test: test-engine test-gateway test-web
 
 test-engine:
-	cd engine && $(PYTHON) -m pytest --cov=engine --cov-report=term-missing
+	$(PYTHON) -m pytest tests/ --tb=short -q
 
 test-gateway:
-	$(NPM) run test -w mix-gateway
+	cd gateway && npx vitest run
+
+test-web:
+	cd web && npx vitest run
 
 clean:
 	rm -rf gateway/dist gateway/node_modules
@@ -34,7 +36,29 @@ clean:
 	rm -rf .venv
 
 setup:
-	$(PIP) install -e "./engine[dev]"
+	$(PIP) install -e ".[dev]"
 	$(NPM) install
 	@echo ""
 	@echo "MIX setup complete! Run 'make dev' to start."
+
+# Docker commands
+
+docker-build:
+	$(DOCKER) compose build
+
+docker-up:
+	$(DOCKER) compose up -d
+	@echo ""
+	@echo "MIX is running:"
+	@echo "  Web UI:    http://localhost:8080"
+	@echo "  Gateway:   http://localhost:18789"
+	@echo "  Engine:    http://localhost:18700"
+
+docker-down:
+	$(DOCKER) compose down
+
+docker-logs:
+	$(DOCKER) compose logs -f
+
+docker-restart:
+	$(DOCKER) compose restart

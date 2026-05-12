@@ -8,6 +8,9 @@ COPY skills/ skills/
 
 RUN pip install --no-cache-dir -e ".[dev]"
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:18700/api/health')" || exit 1
+
 EXPOSE 18700
 
 CMD ["python", "-m", "uvicorn", "engine.main:app", "--host", "0.0.0.0", "--port", "18700"]

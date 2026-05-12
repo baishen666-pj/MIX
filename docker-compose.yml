@@ -7,8 +7,20 @@ services:
       - "18700:18700"
     environment:
       - MIX_CONFIG=/app/config.json
+      - MIX_ENGINE_HOST=0.0.0.0
+      - MIX_ENGINE_PORT=18700
+    env_file:
+      - path: .env
+        required: false
     volumes:
       - mix-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:18700/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   gateway:
     build:
@@ -19,8 +31,32 @@ services:
     environment:
       - MIX_ENGINE_HOST=engine
       - MIX_ENGINE_PORT=18700
+      - MIX_GATEWAY_HOST=0.0.0.0
+      - MIX_GATEWAY_PORT=18789
+    env_file:
+      - path: .env
+        required: false
     depends_on:
-      - engine
+      engine:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:18789/api/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "8080:80"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   mix-data:
