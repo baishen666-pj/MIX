@@ -119,6 +119,14 @@ class MemoryStore:
         await self._db.commit()
         return cursor.rowcount > 0
 
+    async def get_recent(self, limit: int = 10) -> list[MemoryEntry]:
+        assert self._db is not None
+        cursor = await self._db.execute(
+            "SELECT * FROM memories ORDER BY created_at DESC LIMIT ?", (limit,)
+        )
+        rows = await cursor.fetchall()
+        return [self._row_to_entry(row) for row in rows]
+
     def _row_to_entry(self, row: tuple) -> MemoryEntry:
         import json
         return MemoryEntry(

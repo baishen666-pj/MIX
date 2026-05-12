@@ -199,10 +199,34 @@ class AnthropicProvider(LLMProvider):
                 for t in tools
             ]
 
+        tool_calls_acc: dict[int, dict] = {}
+
         async with client.messages.stream(**create_kwargs) as stream:
-            async for text in stream.text_stream:
-                yield {"delta": text, "done": False}
-        yield {"delta": "", "done": True}
+            async for event in stream:
+                if event.type == "content_block_delta":
+                    if event.delta.type == "text_delta":
+                        yield {"delta": event.delta.text, "done": False}
+                    elif event.delta.type == "input_json_delta":
+                        idx = event.index
+                        if idx in tool_calls_acc:
+                            tool_calls_acc[idx]["function"]["arguments"] += event.delta.partial_json
+                elif event.type == "content_block_start":
+                    if event.content_block.type == "tool_use":
+                        tool_calls_acc[event.index] = {
+                            "id": event.content_block.id,
+                            "type": "function",
+                            "function": {
+                                "name": event.content_block.name,
+                                "arguments": "",
+                            },
+                        }
+                elif event.type == "message_stop":
+                    if tool_calls_acc:
+                        final_tool_calls = [tool_calls_acc[i] for i in sorted(tool_calls_acc)]
+                        yield {"delta": "", "done": True, "tool_calls": final_tool_calls}
+                    else:
+                        yield {"delta": "", "done": True}
+                    return
 
 
 def _default_base_url(provider: str) -> str | None:

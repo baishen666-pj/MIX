@@ -54,7 +54,7 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     skill_registry = SkillRegistry(skills_dir=Path("skills"))
     skill_count = skill_registry.load_all()
     learning = LearningLoop(memory, skill_registry)
-    cron = CronScheduler()
+    cron = CronScheduler(persist_path=config.memory.db_path.parent / "cron_jobs.json")
     agent_router = AgentRouter(config, memory)
     mcp = MCPClient()
 

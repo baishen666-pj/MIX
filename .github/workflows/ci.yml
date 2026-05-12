@@ -34,6 +34,8 @@ jobs:
         run: npm ci
       - name: Type check
         run: npx tsc --noEmit --project gateway/tsconfig.json
+      - name: Run tests
+        run: npm run test -w mix-gateway
 
   test-web:
     runs-on: ubuntu-latest

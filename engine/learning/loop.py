@@ -43,7 +43,7 @@ class LearningLoop:
             await self._nudge()
 
     async def _nudge(self) -> None:
-        recent = await self.memory.search("recent", limit=5)
+        recent = await self.memory.get_recent(limit=5)
         if len(recent) < 3:
             return
 

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable, Awaitable
 
 log = logging.getLogger("mix.cron")
@@ -61,11 +63,12 @@ def should_run(cron_expr: str, now: datetime) -> bool:
 
 
 class CronScheduler:
-    def __init__(self) -> None:
+    def __init__(self, persist_path: Path | None = None) -> None:
         self._jobs: dict[str, CronJob] = {}
         self._running = False
         self._task: asyncio.Task | None = None
         self._handler: Callable[[CronJob], Awaitable[None]] | None = None
+        self._persist_path = persist_path or Path.home() / ".mix" / "data" / "cron_jobs.json"
 
     def set_handler(self, handler: Callable[[CronJob], Awaitable[None]]) -> None:
         self._handler = handler
@@ -73,11 +76,13 @@ class CronScheduler:
     def add_job(self, name: str, cron: str, message: str, channel: str = "webchat") -> CronJob:
         job = CronJob(name=name, cron=cron, message=message, channel=channel)
         self._jobs[job.id] = job
+        self._save_jobs()
         return job
 
     def remove_job(self, job_id: str) -> bool:
         if job_id in self._jobs:
             del self._jobs[job_id]
+            self._save_jobs()
             return True
         return False
 
@@ -96,9 +101,37 @@ class CronScheduler:
             for j in self._jobs.values()
         ]
 
+    def _save_jobs(self) -> None:
+        try:
+            self._persist_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {}
+            for jid, j in self._jobs.items():
+                data[jid] = {
+                    "name": j.name, "cron": j.cron, "message": j.message,
+                    "channel": j.channel, "enabled": j.enabled, "last_run": j.last_run,
+                }
+            self._persist_path.write_text(json.dumps(data, indent=2))
+        except Exception:
+            log.exception("Failed to persist cron jobs")
+
+    def _load_jobs(self) -> None:
+        if not self._persist_path.exists():
+            return
+        try:
+            data = json.loads(self._persist_path.read_text())
+            for jid, jd in data.items():
+                self._jobs[jid] = CronJob(
+                    id=jid, name=jd["name"], cron=jd["cron"],
+                    message=jd["message"], channel=jd.get("channel", "webchat"),
+                    enabled=jd.get("enabled", True), last_run=jd.get("last_run", ""),
+                )
+        except Exception:
+            log.exception("Failed to load cron jobs")
+
     def start(self) -> None:
         if self._running:
             return
+        self._load_jobs()
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
 

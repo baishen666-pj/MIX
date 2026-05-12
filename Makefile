@@ -1,4 +1,4 @@
-.PHONY: install dev engine gateway test clean
+.PHONY: install dev engine gateway test test-engine test-gateway clean setup
 
 PYTHON ?= python3
 NODE ?= node
@@ -19,7 +19,14 @@ gateway:
 
 test:
 	cd engine && $(PYTHON) -m pytest --cov=engine --cov-report=term-missing
+	$(NPM) run test -w mix-gateway
 	$(NPM) run typecheck -w mix-gateway
+
+test-engine:
+	cd engine && $(PYTHON) -m pytest --cov=engine --cov-report=term-missing
+
+test-gateway:
+	$(NPM) run test -w mix-gateway
 
 clean:
 	rm -rf gateway/dist gateway/node_modules

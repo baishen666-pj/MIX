@@ -190,72 +190,66 @@ class AgentLoop:
         msg_id = str(uuid.uuid4())
         full_content = ""
 
-        async for chunk in self.provider.stream(
-            messages=context_messages,
-            tools=self._get_tool_definitions(),
-        ):
-            delta = chunk.get("delta", "")
-            tool_calls = chunk.get("tool_calls")
-            done = chunk.get("done", False)
+        for _ in range(MAX_TOOL_ITERATIONS):
+            accumulated_tool_calls: list[dict] = []
 
-            full_content += delta
-            yield {
-                "id": msg_id,
-                "session_id": session.id,
-                "delta": delta,
-                "done": False,
-                "tool_calls": tool_calls,
-            }
+            async for chunk in self.provider.stream(
+                messages=context_messages,
+                tools=self._get_tool_definitions(),
+            ):
+                delta = chunk.get("delta", "")
+                tool_calls = chunk.get("tool_calls")
+                done = chunk.get("done", False)
 
-            if done and tool_calls:
-                for call in tool_calls:
-                    yield {
-                        "id": msg_id,
-                        "session_id": session.id,
-                        "delta": "",
-                        "done": False,
-                        "type": "tool_call",
-                        "tool_call": call,
-                    }
+                full_content += delta
+                yield {
+                    "id": msg_id,
+                    "session_id": session.id,
+                    "delta": delta,
+                    "done": False,
+                    "tool_calls": tool_calls,
+                }
 
-                tool_results = await self._execute_tool_calls(tool_calls)
-                for tr in tool_results:
-                    session.messages = [*session.messages, tr]
-                    context_messages.append(tr.to_api_dict())
-                    yield {
-                        "id": msg_id,
-                        "session_id": session.id,
-                        "delta": "",
-                        "done": False,
-                        "type": "tool_result",
-                        "tool_call_id": tr.tool_call_id,
-                        "name": tr.name,
-                        "content": tr.content,
-                    }
+                if done and tool_calls:
+                    accumulated_tool_calls = tool_calls
 
-                async for sub_chunk in self.provider.stream(
-                    messages=context_messages,
-                    tools=self._get_tool_definitions(),
-                ):
-                    sub_delta = sub_chunk.get("delta", "")
-                    full_content += sub_delta
-                    yield {
-                        "id": msg_id,
-                        "session_id": session.id,
-                        "delta": sub_delta,
-                        "done": False,
-                    }
+            if not accumulated_tool_calls:
+                break
 
-                yield {"id": msg_id, "session_id": session.id, "delta": "", "done": True}
-                session.add("assistant", full_content)
-                await self._persist_memory(session, "assistant", full_content)
-                return
+            context_messages.append({
+                "role": "assistant",
+                "content": "",
+                "tool_calls": accumulated_tool_calls,
+            })
 
-            if done:
-                yield {"id": msg_id, "session_id": session.id, "delta": "", "done": True}
-                session.add("assistant", full_content)
-                await self._persist_memory(session, "assistant", full_content)
-                return
+            for call in accumulated_tool_calls:
+                yield {
+                    "id": msg_id,
+                    "session_id": session.id,
+                    "delta": "",
+                    "done": False,
+                    "type": "tool_call",
+                    "tool_call": call,
+                }
+
+            tool_results = await self._execute_tool_calls(accumulated_tool_calls)
+            for tr in tool_results:
+                session.messages = [*session.messages, tr]
+                context_messages.append(tr.to_api_dict())
+                yield {
+                    "id": msg_id,
+                    "session_id": session.id,
+                    "delta": "",
+                    "done": False,
+                    "type": "tool_result",
+                    "tool_call_id": tr.tool_call_id,
+                    "name": tr.name,
+                    "content": tr.content,
+                }
+
+        yield {"id": msg_id, "session_id": session.id, "delta": "", "done": True}
+        session.add("assistant", full_content)
+        await self._persist_memory(session, "assistant", full_content)
 
 
 def _now_iso() -> str:
