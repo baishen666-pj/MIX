@@ -22,6 +22,7 @@ from engine.tools.registry import ToolRegistry
 from engine.mcp.client import MCPClient
 from engine.middleware.rate_limit import RateLimiter, RateLimitMiddleware
 from engine.middleware.request_logging import RequestLoggingMiddleware
+from engine.monitoring.metrics import MetricsCollector
 
 log = logging.getLogger("mix")
 
@@ -63,12 +64,14 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     bus = AgentBus()
     decomposer = TaskDecomposer(provider=agent_loop.provider)
     orchestrator = TaskOrchestrator()
+    metrics = MetricsCollector()
 
     init_routes(
         agent_loop, memory, skill_registry, learning, cron, agent_router, mcp,
         api_key=config.llm.api_key,
         decomposer=decomposer,
         orchestrator=orchestrator,
+        metrics=metrics,
     )
     app.include_router(router, prefix="/api")
 

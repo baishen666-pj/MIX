@@ -23,6 +23,7 @@ import type { DmPairingConfig } from "./security/acl.js";
 import { ApiKeyAuth } from "./security/api-key.js";
 import { logger } from "./utils/logger.js";
 import { validate, chatRequestSchema, pairingApproveSchema, wsMessageSchema } from "./schemas.js";
+import { MetricsMiddleware } from "./monitoring/metrics.js";
 
 export async function createServer(config: GatewayConfig) {
   const app = Fastify({ logger: false });
@@ -33,6 +34,8 @@ export async function createServer(config: GatewayConfig) {
     engineHost: config.engine.host,
     enginePort: config.engine.port,
   });
+
+  const metricsMiddleware = new MetricsMiddleware();
 
   const channels = new ChannelRegistry();
   const webchat = new WebChatChannel();
@@ -175,6 +178,24 @@ export async function createServer(config: GatewayConfig) {
     apiKeyAuth.rateLimit(request, reply, done);
   });
 
+  // Metrics timing hook
+  app.addHook("onRequest", (request, _reply, done) => {
+    (request as any).__metricsStart = Date.now();
+    done();
+  });
+  app.addHook("onResponse", (request, reply, done) => {
+    const start = (request as any).__metricsStart;
+    if (start) {
+      const durationMs = Date.now() - start;
+      metricsMiddleware.recordTimedRequest(
+        request.url ?? "unknown",
+        durationMs,
+        reply.statusCode ?? 0,
+      );
+    }
+    done();
+  });
+
   const dmConfig: DmPairingConfig = {
     policy: (process.env.DM_POLICY as DmPairingConfig["policy"]) || "pairing",
     allowedUsers: process.env.ALLOWED_USERS?.split(",").filter(Boolean) || [],
@@ -232,6 +253,18 @@ export async function createServer(config: GatewayConfig) {
         engine: "unreachable",
         channels: channels.listChannels(),
       };
+    }
+  });
+
+  app.get("/api/metrics", async (_request, reply) => {
+    const gatewayMetrics = metricsMiddleware.getMetrics();
+    gatewayMetrics.channels = channels.listChannels();
+    try {
+      const engineRes = await bridge.proxyGet("/api/metrics");
+      const engineMetrics = await engineRes.json();
+      return { gateway: gatewayMetrics, engine: engineMetrics };
+    } catch {
+      return { gateway: gatewayMetrics, engine: null };
     }
   });
 

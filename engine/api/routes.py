@@ -23,6 +23,7 @@ from engine.skills.loader import SkillLoader
 from engine.learning.loop import LearningLoop
 from engine.learning.nudge import CronScheduler, CronJob
 from engine.tools.registry import ToolRegistry
+from engine.monitoring.metrics import MetricsCollector
 
 router = APIRouter()
 
@@ -38,6 +39,7 @@ _mcp: Any = None
 _api_key: str = ""
 _decomposer: Any = None
 _orchestrator: Any = None
+_metrics: MetricsCollector | None = None
 
 
 def init_routes(
@@ -51,8 +53,9 @@ def init_routes(
     api_key: str = "",
     decomposer: Any = None,
     orchestrator: Any = None,
+    metrics: MetricsCollector | None = None,
 ) -> None:
-    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp, _api_key, _decomposer, _orchestrator
+    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp, _api_key, _decomposer, _orchestrator, _metrics
     _agent_loop = agent_loop
     _memory = memory
     _skill_registry = skill_registry
@@ -65,6 +68,7 @@ def init_routes(
     _api_key = api_key
     _decomposer = decomposer
     _orchestrator = orchestrator
+    _metrics = metrics
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -74,6 +78,21 @@ async def health():
         version="0.1.0",
         engine="mix-python",
     )
+
+
+@router.get("/metrics")
+async def metrics_endpoint():
+    if _metrics is None:
+        return {"error": "Metrics not initialized"}
+    data = await _metrics.get_metrics()
+    # Enrich with channels from agent router
+    if _agent_router is not None:
+        agents = _agent_router.list_agents()
+        channels = list({ch for a in agents for ch in a.get("channels", [])})
+        data["channels"] = channels
+    else:
+        data["channels"] = []
+    return data
 
 
 @router.post("/chat", response_model=ChatResponse)
