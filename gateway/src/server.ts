@@ -182,6 +182,26 @@ export async function createServer(config: GatewayConfig) {
     return { pending: pairing.getPendingPairings() };
   });
 
+  app.get("/api/skills", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/skills");
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.post("/api/memory/search", async (request, reply) => {
+    try {
+      const res = await bridge.proxyPost("/api/memory/search", request.body);
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
   app.register(async function (fastify) {
     fastify.get("/ws/chat", { websocket: true }, (socket, _req) => {
       socket.on("message", async (raw: Buffer) => {

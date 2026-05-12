@@ -64,4 +64,16 @@ export class EngineBridge {
       }
     }
   }
+
+  async proxyGet(path: string): Promise<Response> {
+    return fetch(`${this.baseUrl}${path}`);
+  }
+
+  async proxyPost(path: string, body: unknown): Promise<Response> {
+    return fetch(`${this.baseUrl}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
 }

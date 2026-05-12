@@ -28,14 +28,14 @@ class LearningLoop:
         self._pending_insights: list[LearningInsight] = []
         self.nudge_interval = 10  # nudge every N interactions
 
-    async def record_interaction(self, role: str, content: str, session_id: str = "") -> None:
+    async def record_interaction(self, role: str, content: str, session_id: str | None = None) -> None:
         self._interaction_count += 1
 
         entry = MemoryEntry(
             type=MemoryType.CONTEXT,
             content=f"[{role}] {content}",
             source="learning_loop",
-            session_id=session_id,
+            session_id=session_id or "",
         )
         await self.memory.store(entry)
 
