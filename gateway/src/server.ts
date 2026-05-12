@@ -9,6 +9,8 @@ import { TelegramChannel } from "./channels/telegram.js";
 import { DiscordChannel } from "./channels/discord.js";
 import { SlackChannel } from "./channels/slack.js";
 import { WeChatChannel } from "./channels/wechat.js";
+import { IrcChannel } from "./channels/irc.js";
+import { WhatsAppChannel } from "./channels/whatsapp.js";
 import { DmPairing, DmSecurityFilter } from "./security/dm-pairing.js";
 import type { DmPairingConfig } from "./security/acl.js";
 import { logger } from "./utils/logger.js";
@@ -61,6 +63,27 @@ export async function createServer(config: GatewayConfig) {
     wechatAdapter = new WeChatChannel({ webhookUrl: "", corpId: wechatCorpId, agentId: wechatAgentId, secret: wechatSecret });
     channels.register(wechatAdapter);
     logger.info("WeChat app channel enabled");
+  }
+
+  const ircServer = process.env.IRC_SERVER;
+  const ircNick = process.env.IRC_NICK;
+  if (ircServer && ircNick) {
+    const ircChannels = process.env.IRC_CHANNELS?.split(",").filter(Boolean) ?? [];
+    channels.register(new IrcChannel({
+      server: ircServer,
+      nick: ircNick,
+      channels: ircChannels,
+      port: process.env.IRC_PORT ? parseInt(process.env.IRC_PORT, 10) : undefined,
+      password: process.env.IRC_PASSWORD,
+      tls: process.env.IRC_TLS === "true",
+    }));
+    logger.info("IRC channel enabled");
+  }
+
+  const whatsappEnabled = process.env.WHATSAPP_ENABLED === "true";
+  if (whatsappEnabled) {
+    channels.register(new WhatsAppChannel());
+    logger.info("WhatsApp channel enabled");
   }
 
   const dmConfig: DmPairingConfig = {
