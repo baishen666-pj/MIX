@@ -11,6 +11,13 @@ import { SlackChannel } from "./channels/slack.js";
 import { WeChatChannel } from "./channels/wechat.js";
 import { IrcChannel } from "./channels/irc.js";
 import { WhatsAppChannel } from "./channels/whatsapp.js";
+import { MatrixChannel } from "./channels/matrix.js";
+import { LineChannel } from "./channels/line.js";
+import { GoogleChatChannel } from "./channels/google-chat.js";
+import { SignalChannel } from "./channels/signal.js";
+import { TeamsChannel } from "./channels/teams.js";
+import { IMessageChannel } from "./channels/imessage.js";
+import { FeishuChannel } from "./channels/feishu.js";
 import { DmPairing, DmSecurityFilter } from "./security/dm-pairing.js";
 import type { DmPairingConfig } from "./security/acl.js";
 import { logger } from "./utils/logger.js";
@@ -84,6 +91,61 @@ export async function createServer(config: GatewayConfig) {
   if (whatsappEnabled) {
     channels.register(new WhatsAppChannel());
     logger.info("WhatsApp channel enabled");
+  }
+
+  const matrixServer = process.env.MATRIX_HOMESERVER;
+  const matrixToken = process.env.MATRIX_ACCESS_TOKEN;
+  if (matrixServer && matrixToken) {
+    channels.register(new MatrixChannel({
+      homeserverUrl: matrixServer,
+      accessToken: matrixToken,
+      userId: process.env.MATRIX_USER_ID ?? "",
+      rooms: process.env.MATRIX_ROOMS?.split(",").filter(Boolean) ?? [],
+    }));
+    logger.info("Matrix channel enabled");
+  }
+
+  const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (lineToken) {
+    channels.register(new LineChannel({
+      channelAccessToken: lineToken,
+      channelSecret: process.env.LINE_CHANNEL_SECRET ?? "",
+    }));
+    logger.info("LINE channel enabled");
+  }
+
+  const googleChatWebhook = process.env.GOOGLE_CHAT_WEBHOOK_URL;
+  if (googleChatWebhook) {
+    channels.register(new GoogleChatChannel({ webhookUrl: googleChatWebhook }));
+    logger.info("Google Chat channel enabled");
+  }
+
+  const signalServer = process.env.SIGNAL_SERVER_URL;
+  if (signalServer) {
+    channels.register(new SignalChannel({
+      serverUrl: signalServer,
+      phoneNumber: process.env.SIGNAL_PHONE_NUMBER ?? "",
+    }));
+    logger.info("Signal channel enabled");
+  }
+
+  const teamsBotId = process.env.TEAMS_BOT_ID;
+  if (teamsBotId) {
+    channels.register(new TeamsChannel({ botId: teamsBotId, botPassword: process.env.TEAMS_BOT_PASSWORD }));
+    logger.info("Teams channel enabled");
+  }
+
+  const imessageBusinessId = process.env.IMESSAGE_BUSINESS_ID;
+  if (imessageBusinessId) {
+    channels.register(new IMessageChannel({ businessId: imessageBusinessId, apiEndpoint: process.env.IMESSAGE_API_ENDPOINT }));
+    logger.info("iMessage channel enabled");
+  }
+
+  const feishuAppId = process.env.FEISHU_APP_ID;
+  const feishuAppSecret = process.env.FEISHU_APP_SECRET;
+  if (feishuAppId && feishuAppSecret) {
+    channels.register(new FeishuChannel({ appId: feishuAppId, appSecret: feishuAppSecret }));
+    logger.info("Feishu channel enabled");
   }
 
   const dmConfig: DmPairingConfig = {
@@ -231,6 +293,47 @@ export async function createServer(config: GatewayConfig) {
     app.post("/api/wechat/webhook", async (request, reply) => {
       const body = request.body as Record<string, unknown>;
       wechatAdapter!.receiveWebhook(body);
+      return { status: "ok" };
+    });
+  }
+
+  // Webhook routes for push-based channels
+  const lineAdapter = channels.getAdapter("line") as InstanceType<typeof LineChannel> | undefined;
+  if (lineAdapter) {
+    app.post("/api/line/webhook", async (request) => {
+      lineAdapter.receiveWebhook(request.body as Parameters<typeof lineAdapter.receiveWebhook>[0]);
+      return { status: "ok" };
+    });
+  }
+
+  const googleChatAdapter = channels.getAdapter("google_chat") as InstanceType<typeof GoogleChatChannel> | undefined;
+  if (googleChatAdapter) {
+    app.post("/api/google-chat/webhook", async (request) => {
+      googleChatAdapter.receiveEvent(request.body as Parameters<typeof googleChatAdapter.receiveEvent>[0]);
+      return { status: "ok" };
+    });
+  }
+
+  const teamsAdapter = channels.getAdapter("teams") as InstanceType<typeof TeamsChannel> | undefined;
+  if (teamsAdapter) {
+    app.post("/api/teams/webhook", async (request) => {
+      teamsAdapter.receiveActivity(request.body as Parameters<typeof teamsAdapter.receiveActivity>[0]);
+      return { status: "ok" };
+    });
+  }
+
+  const imessageAdapter = channels.getAdapter("imessage") as InstanceType<typeof IMessageChannel> | undefined;
+  if (imessageAdapter) {
+    app.post("/api/imessage/webhook", async (request) => {
+      imessageAdapter.receiveMessage(request.body as Parameters<typeof imessageAdapter.receiveMessage>[0]);
+      return { status: "ok" };
+    });
+  }
+
+  const feishuAdapter = channels.getAdapter("feishu") as InstanceType<typeof FeishuChannel> | undefined;
+  if (feishuAdapter) {
+    app.post("/api/feishu/webhook", async (request) => {
+      feishuAdapter.receiveEvent(request.body as Parameters<typeof feishuAdapter.receiveEvent>[0]);
       return { status: "ok" };
     });
   }

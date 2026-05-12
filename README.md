@@ -131,8 +131,15 @@ curl -X POST http://localhost:18700/api/learning/insights/<id>/promote
 | Discord | Working | `DISCORD_BOT_TOKEN` |
 | Slack | Working | `SLACK_BOT_TOKEN` |
 | WeChat | Working | `WECHAT_WEBHOOK_URL` (webhook) or `WECHAT_CORP_ID`+`WECHAT_AGENT_ID`+`WECHAT_SECRET` (app) |
-| IRC | Working | `IRC_SERVER`+`IRC_NICK`+`IRC_CHANNELS` (optional: `IRC_PORT`, `IRC_PASSWORD`, `IRC_TLS`) |
-| WhatsApp | Working | `WHATSAPP_ENABLED=true` (QR code pairing on first start) |
+| IRC | Working | `IRC_SERVER`+`IRC_NICK`+`IRC_CHANNELS` |
+| WhatsApp | Working | `WHATSAPP_ENABLED=true` (QR code pairing) |
+| Matrix | Working | `MATRIX_HOMESERVER`+`MATRIX_ACCESS_TOKEN` |
+| LINE | Working | `LINE_CHANNEL_ACCESS_TOKEN` (webhook at `/api/line/webhook`) |
+| Google Chat | Working | `GOOGLE_CHAT_WEBHOOK_URL` (webhook at `/api/google-chat/webhook`) |
+| Signal | Working | `SIGNAL_SERVER_URL`+`SIGNAL_PHONE_NUMBER` (requires signal-cli-rest) |
+| Teams | Working | `TEAMS_BOT_ID` (webhook at `/api/teams/webhook`) |
+| iMessage | Working | `IMESSAGE_BUSINESS_ID` (webhook at `/api/imessage/webhook`) |
+| Feishu | Working | `FEISHU_APP_ID`+`FEISHU_APP_SECRET` (webhook at `/api/feishu/webhook`) |
 
 ## Creating Skills
 
