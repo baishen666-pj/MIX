@@ -12,6 +12,7 @@ from engine.memory.types import MemoryEntry, MemoryType
 from engine.tools.registry import ToolRegistry
 
 MAX_TOOL_ITERATIONS = 10
+MAX_SESSION_MESSAGES = 50
 
 
 @dataclass
@@ -60,6 +61,14 @@ class AgentLoop:
         self.tools = tools or ToolRegistry()
 
     async def _build_context(self, session: Session) -> list[dict]:
+        if len(session.messages) > MAX_SESSION_MESSAGES:
+            trimmed = session.messages[-MAX_SESSION_MESSAGES:]
+            summary_prefix = f"[Earlier {len(session.messages) - MAX_SESSION_MESSAGES} messages trimmed]"
+            session.messages = [
+                Message(role="system", content=summary_prefix),
+                *trimmed,
+            ]
+
         messages = [m.to_api_dict() for m in session.messages]
 
         if self.memory and session.messages:

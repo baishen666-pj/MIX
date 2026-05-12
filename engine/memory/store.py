@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import aiosqlite
+import time
 from pathlib import Path
 
 from engine.memory.types import MemoryEntry, MemoryType
+from engine.memory.embeddings import EmbeddingService
+
+_COMMIT_BATCH_SIZE = 10
+_CACHE_MAX = 100
+_CACHE_TTL = 60
 
 
 CREATE_TABLE_SQL = """
@@ -41,13 +47,22 @@ CREATE TABLE IF NOT EXISTS sessions (
     data TEXT NOT NULL DEFAULT '{}',
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS memory_vectors (
+    memory_id TEXT PRIMARY KEY,
+    embedding BLOB NOT NULL,
+    FOREIGN KEY (memory_id) REFERENCES memories(id)
+);
 """
 
 
 class MemoryStore:
-    def __init__(self, db_path: Path) -> None:
+    def __init__(self, db_path: Path, use_embeddings: bool = True) -> None:
         self.db_path = db_path
         self._db: aiosqlite.Connection | None = None
+        self._pending_writes = 0
+        self._search_cache: dict[str, tuple[float, list[MemoryEntry]]] = {}
+        self._embeddings = EmbeddingService() if use_embeddings else None
 
     async def connect(self) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -57,6 +72,8 @@ class MemoryStore:
 
     async def close(self) -> None:
         if self._db:
+            if self._pending_writes > 0:
+                await self._db.commit()
             await self._db.close()
             self._db = None
 
@@ -79,23 +96,134 @@ class MemoryStore:
                 entry.importance,
             ),
         )
-        await self._db.commit()
+        self._pending_writes += 1
+        self._invalidate_cache()
+        if self._embeddings:
+            try:
+                vec = self._embeddings.encode(entry.content)
+                blob = EmbeddingService.serialize_vector(vec)
+                await self._db.execute(
+                    "INSERT INTO memory_vectors (memory_id, embedding) VALUES (?, ?)",
+                    (entry.id, blob),
+                )
+            except Exception:
+                pass
+        if self._pending_writes >= _COMMIT_BATCH_SIZE:
+            await self._db.commit()
+            self._pending_writes = 0
 
     async def search(self, query: str, limit: int = 10) -> list[MemoryEntry]:
+        if self._pending_writes > 0:
+            assert self._db is not None
+            await self._db.commit()
+            self._pending_writes = 0
+
+        cache_key = f"{query}:{limit}"
+        now = time.time()
+        cached = self._search_cache.get(cache_key)
+        if cached and now - cached[0] < _CACHE_TTL:
+            return cached[1]
+
         assert self._db is not None
-        cursor = await self._db.execute(
-            "SELECT m.* FROM memories m "
-            "JOIN memories_fts f ON m.id = f.id "
-            "WHERE memories_fts MATCH ? "
-            "ORDER BY m.importance DESC, m.accessed_at DESC "
-            "LIMIT ?",
-            (query, limit),
-        )
-        rows = await cursor.fetchall()
-        return [self._row_to_entry(row) for row in rows]
+
+        # FTS5 keyword search
+        fts_results: list[MemoryEntry] = []
+        try:
+            cursor = await self._db.execute(
+                "SELECT m.* FROM memories m "
+                "JOIN memories_fts f ON m.id = f.id "
+                "WHERE memories_fts MATCH ? "
+                "ORDER BY m.importance DESC, m.accessed_at DESC "
+                "LIMIT ?",
+                (query, limit),
+            )
+            rows = await cursor.fetchall()
+            fts_results = [self._row_to_entry(row) for row in rows]
+        except Exception:
+            pass
+
+        # Vector semantic search (if embeddings available)
+        vec_results: list[MemoryEntry] = []
+        if self._embeddings:
+            try:
+                query_vec = self._embeddings.encode(query)
+                vec_cursor = await self._db.execute(
+                    "SELECT mv.memory_id, mv.embedding FROM memory_vectors mv"
+                )
+                vec_rows = await vec_cursor.fetchall()
+                scored: list[tuple[float, str]] = []
+                for row in vec_rows:
+                    mem_id = row[0]
+                    stored_vec = EmbeddingService.deserialize_vector(row[1])
+                    sim = EmbeddingService.cosine_similarity(query_vec, stored_vec)
+                    scored.append((sim, mem_id))
+                scored.sort(key=lambda x: x[0], reverse=True)
+                top_ids = [sid for _, sid in scored[:limit]]
+                if top_ids:
+                    placeholders = ",".join("?" for _ in top_ids)
+                    entry_cursor = await self._db.execute(
+                        f"SELECT * FROM memories WHERE id IN ({placeholders})", top_ids
+                    )
+                    entry_rows = await entry_cursor.fetchall()
+                    vec_results = [self._row_to_entry(r) for r in entry_rows]
+                    id_to_entry = {e.id: e for e in vec_results}
+                    vec_results = [id_to_entry[sid] for sid in top_ids if sid in id_to_entry]
+            except Exception:
+                pass
+
+        # Reciprocal Rank Fusion
+        if not fts_results and not vec_results:
+            results: list[MemoryEntry] = []
+        elif fts_results and not vec_results:
+            results = fts_results[:limit]
+        elif vec_results and not fts_results:
+            results = vec_results[:limit]
+        else:
+            k = 60
+            scores: dict[str, float] = {}
+            entry_map: dict[str, MemoryEntry] = {}
+            for rank, entry in enumerate(fts_results):
+                scores[entry.id] = scores.get(entry.id, 0) + 1 / (k + rank + 1)
+                entry_map[entry.id] = entry
+            for rank, entry in enumerate(vec_results):
+                scores[entry.id] = scores.get(entry.id, 0) + 1 / (k + rank + 1)
+                entry_map[entry.id] = entry
+            sorted_ids = sorted(scores, key=scores.get, reverse=True)[:limit]  # type: ignore[arg-type]
+            results = [entry_map[mid] for mid in sorted_ids]
+
+        if len(self._search_cache) >= _CACHE_MAX:
+            oldest = min(self._search_cache, key=lambda k: self._search_cache[k][0])
+            del self._search_cache[oldest]
+        self._search_cache[cache_key] = (now, results)
+        return results
+
+    async def ingest_document(self, text: str, chunk_size: int = 500, source: str = "") -> list[str]:
+        overlap = 50
+        chunks: list[str] = []
+        start = 0
+        while start < len(text):
+            end = min(start + chunk_size, len(text))
+            chunks.append(text[start:end])
+            if end >= len(text):
+                break
+            start += chunk_size - overlap
+
+        ids: list[str] = []
+        for chunk in chunks:
+            entry = MemoryEntry(
+                type=MemoryType.CONTEXT,
+                content=chunk,
+                source=source or "document",
+            )
+            await self.store(entry)
+            ids.append(entry.id)
+        return ids
 
     async def get(self, entry_id: str) -> MemoryEntry | None:
         assert self._db is not None
+        if self._pending_writes > 0:
+            await self._db.commit()
+            self._pending_writes = 0
         cursor = await self._db.execute(
             "SELECT * FROM memories WHERE id = ?", (entry_id,)
         )
@@ -116,13 +244,28 @@ class MemoryStore:
         cursor = await self._db.execute(
             "DELETE FROM memories WHERE id = ?", (entry_id,)
         )
-        await self._db.commit()
+        self._pending_writes += 1
+        self._invalidate_cache()
+        if self._pending_writes >= _COMMIT_BATCH_SIZE:
+            await self._db.commit()
+            self._pending_writes = 0
         return cursor.rowcount > 0
+
+    async def flush(self) -> None:
+        if self._db and self._pending_writes > 0:
+            await self._db.commit()
+            self._pending_writes = 0
+
+    def _invalidate_cache(self) -> None:
+        self._search_cache.clear()
 
     async def get_recent(self, limit: int = 10) -> list[MemoryEntry]:
         assert self._db is not None
+        if self._pending_writes > 0:
+            await self._db.commit()
+            self._pending_writes = 0
         cursor = await self._db.execute(
-            "SELECT * FROM memories ORDER BY created_at DESC LIMIT ?", (limit,)
+            "SELECT * FROM memories ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,)
         )
         rows = await cursor.fetchall()
         return [self._row_to_entry(row) for row in rows]
@@ -153,7 +296,10 @@ class MemoryStore:
             "INSERT OR REPLACE INTO sessions (id, data, updated_at) VALUES (?, ?, ?)",
             (session_id, json.dumps(data), now),
         )
-        await self._db.commit()
+        self._pending_writes += 1
+        if self._pending_writes >= _COMMIT_BATCH_SIZE:
+            await self._db.commit()
+            self._pending_writes = 0
 
     async def load_session(self, session_id: str) -> dict | None:
         assert self._db is not None
@@ -175,5 +321,8 @@ class MemoryStore:
     async def delete_session(self, session_id: str) -> bool:
         assert self._db is not None
         cursor = await self._db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-        await self._db.commit()
+        self._pending_writes += 1
+        if self._pending_writes >= _COMMIT_BATCH_SIZE:
+            await self._db.commit()
+            self._pending_writes = 0
         return cursor.rowcount > 0

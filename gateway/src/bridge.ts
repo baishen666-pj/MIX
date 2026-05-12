@@ -65,6 +65,44 @@ export class EngineBridge {
     }
   }
 
+  async *chatStreamSSE(message: string, sessionId?: string): AsyncGenerator<StreamChunk> {
+    const params = new URLSearchParams({ message });
+    if (sessionId) params.set("session_id", sessionId);
+
+    const res = await fetch(`${this.baseUrl}/api/chat/stream?${params}`);
+    if (!res.body) throw new Error("No response body for SSE stream");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split("\n\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const dataLine = line.trim();
+        if (!dataLine.startsWith("data: ")) continue;
+        const payload = dataLine.slice(6);
+        if (payload === "[DONE]") return;
+        yield JSON.parse(payload) as StreamChunk;
+      }
+    }
+  }
+
+  async ingestDocument(text: string, source?: string, chunkSize?: number): Promise<{status: string; chunks_created: number}> {
+    const res = await fetch(`${this.baseUrl}/api/memory/ingest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, source, chunk_size: chunkSize }),
+    });
+    return res.json() as Promise<{status: string; chunks_created: number}>;
+  }
+
   async proxyGet(path: string): Promise<Response> {
     return fetch(`${this.baseUrl}${path}`);
   }

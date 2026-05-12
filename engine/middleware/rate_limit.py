@@ -25,6 +25,13 @@ class RateLimiter:
     def check(self, key: str) -> tuple[bool, dict]:
         now = time.time()
 
+        # Evict stale entries when dict grows too large
+        if len(self._minute_buckets) > 10000:
+            stale = [k for k, b in self._minute_buckets.items() if now - b.window_start > 7200]
+            for k in stale:
+                del self._minute_buckets[k]
+                self._hour_buckets.pop(k, None)
+
         # Per-minute
         minute = self._minute_buckets.get(key)
         if minute is None:

@@ -1,10 +1,30 @@
 from __future__ import annotations
 
+import ipaddress
 import json
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
+
+
+def _validate_mcp_url(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Invalid MCP URL scheme: {parsed.scheme}")
+    host = parsed.hostname
+    if not host:
+        raise ValueError("MCP URL has no hostname")
+    try:
+        addr = ipaddress.ip_address(host)
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+            raise ValueError(f"MCP URL points to private/reserved IP: {host}")
+    except ValueError:
+        if not addr:
+            pass
+    if host in ("localhost", "0.0.0.0", "::1"):
+        raise ValueError(f"MCP URL points to local address: {host}")
 
 
 @dataclass
@@ -45,6 +65,7 @@ class MCPClient:
         if not server:
             return []
 
+        _validate_mcp_url(server.url)
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 headers = {"Content-Type": "application/json"}
@@ -84,6 +105,7 @@ class MCPClient:
 
         original_name = tool_name.removeprefix(f"mcp_{tool.server}_")
 
+        _validate_mcp_url(server.url)
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 headers = {"Content-Type": "application/json"}

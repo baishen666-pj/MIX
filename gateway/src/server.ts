@@ -27,7 +27,10 @@ import { MetricsMiddleware } from "./monitoring/metrics.js";
 
 export async function createServer(config: GatewayConfig) {
   const app = Fastify({ logger: false });
-  await app.register(cors, { origin: true });
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
+    : ["http://localhost:8080"];
+  await app.register(cors, { origin: corsOrigins });
   await app.register(websocket);
 
   const bridge = new EngineBridge({
@@ -288,6 +291,30 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
+  app.get("/api/chat/stream", async (request, reply) => {
+    const query = request.query as Record<string, string | undefined>;
+    const message = query.message;
+    if (!message) {
+      reply.code(400);
+      return { error: "message query parameter is required" };
+    }
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    try {
+      for await (const chunk of bridge.chatStreamSSE(message, query.session_id)) {
+        reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        if (chunk.done) break;
+      }
+      reply.raw.write("data: [DONE]\n\n");
+    } catch (err) {
+      reply.raw.write(`data: ${JSON.stringify({ error: String(err), done: true })}\n\n`);
+    }
+    reply.raw.end();
+  });
+
   app.post("/api/pairing/approve", async (request, reply) => {
     let body;
     try {
@@ -317,6 +344,42 @@ export async function createServer(config: GatewayConfig) {
   app.post("/api/memory/search", async (request, reply) => {
     try {
       const res = await bridge.proxyPost("/api/memory/search", request.body);
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.post("/api/memory/ingest", async (request, reply) => {
+    try {
+      const body = request.body as Record<string, unknown>;
+      const result = await bridge.ingestDocument(
+        String(body.text ?? ""),
+        body.source ? String(body.source) : undefined,
+        body.chunk_size ? Number(body.chunk_size) : undefined,
+      );
+      return result;
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.get("/api/sessions", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/sessions");
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.delete("/api/sessions/:sessionId", async (request, reply) => {
+    try {
+      const { sessionId } = request.params as { sessionId: string };
+      const res = await fetch(`${bridge["baseUrl"]}/api/sessions/${sessionId}`, { method: "DELETE" });
       return res.json();
     } catch (err) {
       reply.code(502);

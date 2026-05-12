@@ -47,11 +47,6 @@ export class ApiKeyAuth {
       }
     }
 
-    const queryKey = (request.query as Record<string, string | undefined>).api_key;
-    if (queryKey) {
-      return queryKey;
-    }
-
     return undefined;
   }
 
@@ -68,7 +63,7 @@ export class ApiKeyAuth {
     const key = this.extractKey(request);
     if (!key) {
       reply.code(401);
-      reply.send({ error: "Missing API key", details: "Provide api_key via Authorization: Bearer <key> or ?api_key=<key>" });
+      reply.send({ error: "Missing API key", details: "Provide api_key via Authorization: Bearer <key>" });
       return;
     }
 

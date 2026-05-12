@@ -6,10 +6,13 @@ COPY pyproject.toml .
 COPY engine/ engine/
 COPY skills/ skills/
 
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir -e ".[dev]" \
+    && useradd --create-home mixuser
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:18700/api/health')" || exit 1
+
+USER mixuser
 
 EXPOSE 18700
 

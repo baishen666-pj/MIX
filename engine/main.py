@@ -16,11 +16,14 @@ from engine.api.routes import router, init_routes
 from engine.config import MixConfig
 from engine.memory.store import MemoryStore
 from engine.skills.registry import SkillRegistry
+from engine.skills.watcher import SkillWatcher
+from engine.skills.plugin_context import PluginContext
 from engine.learning.loop import LearningLoop
 from engine.learning.nudge import CronScheduler
 from engine.tools.registry import ToolRegistry
 from engine.mcp.client import MCPClient
 from engine.middleware.rate_limit import RateLimiter, RateLimitMiddleware
+from engine.middleware.api_key_auth import ApiKeyMiddleware
 from engine.middleware.request_logging import RequestLoggingMiddleware
 from engine.monitoring.metrics import MetricsCollector
 
@@ -31,11 +34,15 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     config = config or MixConfig.load()
     app = FastAPI(title="MIX Engine", version="0.1.0")
 
+    if config.security.engine_api_key:
+        app.add_middleware(ApiKeyMiddleware, api_key=config.security.engine_api_key)
+        log.info("Engine API key authentication enabled")
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=config.security.cors_origins,
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Authorization", "Content-Type"],
     )
 
     app.add_middleware(RequestLoggingMiddleware)
@@ -65,6 +72,8 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     decomposer = TaskDecomposer(provider=agent_loop.provider)
     orchestrator = TaskOrchestrator()
     metrics = MetricsCollector()
+    skill_watcher = SkillWatcher(Path("skills"), skill_registry)
+    plugin_ctx = PluginContext(config=config, memory=memory, tools=tools, skill_registry=skill_registry)
 
     init_routes(
         agent_loop, memory, skill_registry, learning, cron, agent_router, mcp,
@@ -80,6 +89,7 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
         config.memory.db_path.parent.mkdir(parents=True, exist_ok=True)
         await memory.connect()
         cron.start()
+        await skill_watcher.start()
         if skill_count > 0:
             log.info("Loaded %d skill(s)", skill_count)
         log.info("Tools: %s", ", ".join(tools.list_tools()))
@@ -87,7 +97,9 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
 
     @app.on_event("shutdown")
     async def shutdown():
+        await skill_watcher.stop()
         cron.stop()
+        await memory.flush()
         await memory.close()
 
     return app

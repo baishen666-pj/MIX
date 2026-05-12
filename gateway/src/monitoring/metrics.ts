@@ -27,6 +27,7 @@ const MAX_RECORDS = 10000;
 export class MetricsMiddleware {
   private startTime: number;
   private records: TimingRecord[];
+  private _head: number;
   private totalRequests: number;
   private requestsByEndpoint: Record<string, { count: number; totalDuration: number; errors: number }>;
   private requestsByStatus: Record<string, number>;
@@ -35,6 +36,7 @@ export class MetricsMiddleware {
   constructor() {
     this.startTime = Date.now();
     this.records = [];
+    this._head = 0;
     this.totalRequests = 0;
     this.requestsByEndpoint = {};
     this.requestsByStatus = {};
@@ -62,10 +64,12 @@ export class MetricsMiddleware {
       endpoint,
     };
 
-    this.records.push(record);
-    if (this.records.length > MAX_RECORDS) {
-      this.records.shift();
+    if (this.records.length < MAX_RECORDS) {
+      this.records.push(record);
+    } else {
+      this.records[this._head] = record;
     }
+    this._head = (this._head + 1) % MAX_RECORDS;
 
     this.totalRequests += 1;
     this.totalDuration += durationMs;
@@ -112,6 +116,7 @@ export class MetricsMiddleware {
   reset(): void {
     this.startTime = Date.now();
     this.records = [];
+    this._head = 0;
     this.totalRequests = 0;
     this.requestsByEndpoint = {};
     this.requestsByStatus = {};

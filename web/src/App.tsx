@@ -6,6 +6,7 @@ import { ChatView } from "./components/ChatView";
 import { SkillsView } from "./components/SkillsView";
 import { MemoryView } from "./components/MemoryView";
 import { SettingsView } from "./components/SettingsView";
+import { ConversationSidebar } from "./components/ConversationSidebar";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { s } from "./styles";
 
@@ -23,6 +24,7 @@ export function App() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [thinking, setThinking] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme);
+  const [currentSessionId, setCurrentSessionId] = useState("");
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -33,7 +35,14 @@ export function App() {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   }, []);
 
-  const { messages, connected, send } = useWebSocket(WS_URL);
+  const { messages, connected, send, sessionId } = useWebSocket(WS_URL);
+
+  useEffect(() => {
+    if (sessionId && sessionId !== currentSessionId) {
+      setCurrentSessionId(sessionId);
+    }
+  }, [sessionId, currentSessionId]);
+
   const { data: skillsData, loading: skillsLoading, error: skillsError } = useApi<Skill[]>("/api/skills");
   const { data: healthData, loading: healthLoading, error: healthError } = useApi<Record<string, unknown>>("/api/health");
 
@@ -60,54 +69,67 @@ export function App() {
     setTimeout(() => { clearInterval(checkDone); setThinking(false); }, 30000);
   }, [send, messages]);
 
+  const handleNewSession = useCallback(() => {
+    setCurrentSessionId("");
+    window.location.reload();
+  }, []);
+
   const skills = skillsData?.skills ?? (skillsData as unknown as Skill[]) ?? [];
 
   return (
-    <div style={s.container}>
-      <header style={s.header}>
-        <h1 style={s.title}>MIX</h1>
-        <nav style={s.nav}>
-          {(["chat", "skills", "memory", "settings"] as Tab[]).map((t) => (
-            <button key={t} onClick={() => setTab(t)} style={tab === t ? s.navActive : s.navBtn}>
-              {t}
+    <div style={s.sidebarWrapper}>
+      <ConversationSidebar
+        currentSessionId={currentSessionId}
+        onSelectSession={(id) => setCurrentSessionId(id)}
+        onNewSession={handleNewSession}
+      />
+      <div style={s.container}>
+        <header style={s.header}>
+          <h1 style={s.title}>MIX</h1>
+          <nav style={s.nav}>
+            {(["chat", "skills", "memory", "settings"] as Tab[]).map((t) => (
+              <button key={t} onClick={() => setTab(t)} style={tab === t ? s.navActive : s.navBtn}>
+                {t}
+              </button>
+            ))}
+          </nav>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={connected ? s.status : s.statusError}>{connected ? "on" : "off"}</span>
+            <button onClick={toggleTheme} style={themeBtnStyle} aria-label="Toggle theme">
+              {theme === "dark" ? "☀" : "☾"}
             </button>
-          ))}
-        </nav>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={connected ? s.status : s.statusError}>{connected ? "on" : "off"}</span>
-          <button onClick={toggleTheme} style={themeBtnStyle} aria-label="Toggle theme">
-            {theme === "dark" ? "☀" : "☾"}
-          </button>
-        </div>
-      </header>
+          </div>
+        </header>
 
-      {tab === "chat" && (
-        <ChatView messages={messages} connected={connected} onSend={handleSend} thinking={thinking} />
-      )}
+        {tab === "chat" && (
+          <ChatView messages={messages} connected={connected} onSend={handleSend} thinking={thinking} />
+        )}
 
-      {tab === "skills" && (
-        <SkillsView skills={skills} loading={skillsLoading} error={skillsError} />
-      )}
+        {tab === "skills" && (
+          <SkillsView skills={skills} loading={skillsLoading} error={skillsError} />
+        )}
 
-      {tab === "memory" && (
-        <>
-          {searchError && <ErrorBanner message={searchError} onDismiss={() => setApiError(null)} />}
-          <MemoryView
-            memories={memories}
-            loading={searchLoading}
-            error={null}
-            onSearch={handleSearch}
+        {tab === "memory" && (
+          <>
+            {searchError && <ErrorBanner message={searchError} onDismiss={() => setApiError(null)} />}
+            <MemoryView
+              memories={memories}
+              loading={searchLoading}
+              error={null}
+              onSearch={handleSearch}
+              onRefresh={() => handleSearch("")}
+            />
+          </>
+        )}
+
+        {tab === "settings" && (
+          <SettingsView
+            health={healthData ?? {}}
+            loading={healthLoading}
+            error={healthError}
           />
-        </>
-      )}
-
-      {tab === "settings" && (
-        <SettingsView
-          health={healthData ?? {}}
-          loading={healthLoading}
-          error={healthError}
-        />
-      )}
+        )}
+      </div>
     </div>
   );
 }

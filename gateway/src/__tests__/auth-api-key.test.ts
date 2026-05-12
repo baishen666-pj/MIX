@@ -90,7 +90,7 @@ describe("API Key Authentication", () => {
       expect(res.statusCode).toBe(502);
     });
 
-    it("accepts valid key via query parameter", async () => {
+    it("rejects key via query parameter", async () => {
       process.env.API_KEYS = "test-key-1,test-key-2";
       await setupServer();
 
@@ -99,7 +99,7 @@ describe("API Key Authentication", () => {
         url: "/api/chat?api_key=test-key-2",
         payload: { message: "Hi" },
       });
-      expect(res.statusCode).toBe(502);
+      expect(res.statusCode).toBe(401);
     });
   });
 

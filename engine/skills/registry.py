@@ -18,6 +18,9 @@ class SkillManifest:
     auto_evolve: bool = True
     skill_path: str = ""
     handler_code: str = ""
+    hooks: list[str] = field(default_factory=list)
+    permissions: list[str] = field(default_factory=list)
+    custom_routes: list[dict] = field(default_factory=list)
 
 
 class SkillRegistry:
@@ -46,6 +49,15 @@ class SkillRegistry:
 
     def get(self, name: str) -> SkillManifest | None:
         return self.skills.get(name)
+
+    def register(self, manifest: SkillManifest) -> None:
+        self.skills[manifest.name] = manifest
+
+    def unregister(self, name: str) -> bool:
+        if name in self.skills:
+            del self.skills[name]
+            return True
+        return False
 
     def list_skills(self) -> list[dict]:
         return [
@@ -85,6 +97,12 @@ class SkillRegistry:
             else:
                 handler_type = lang
 
+        hooks_raw = self._extract_section(content, "hooks") or ""
+        hooks = [h.strip().lstrip("- ") for h in hooks_raw.split("\n") if h.strip().startswith("-")]
+
+        perms_raw = self._extract_section(content, "permissions") or ""
+        permissions = [p.strip().lstrip("- ") for p in perms_raw.split("\n") if p.strip().startswith("-")]
+
         return SkillManifest(
             name=name,
             version=version,
@@ -93,6 +111,8 @@ class SkillRegistry:
             handler=handler_type,
             handler_code=handler_code,
             skill_path=str(skill_dir),
+            hooks=hooks,
+            permissions=permissions,
         )
 
     def _extract_section(self, content: str, heading: str) -> str | None:

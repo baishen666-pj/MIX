@@ -40,6 +40,8 @@ class MemoryConfig:
 class SecurityConfig:
     dm_policy: str = "pairing"
     allowed_users: list[str] = field(default_factory=list)
+    cors_origins: list[str] = field(default_factory=lambda: ["http://localhost:8080"])
+    engine_api_key: str = ""
 
 
 @dataclass
@@ -82,7 +84,10 @@ class MixConfig:
                 mem["db_path"] = Path(mem["db_path"])
             cfg.memory = MemoryConfig(**mem)
         if "security" in data:
-            cfg.security = SecurityConfig(**data["security"])
+            sec = data["security"]
+            if "engine_api_key" in sec:
+                sec["engine_api_key"] = os.environ.get("ENGINE_API_KEY", sec["engine_api_key"])
+            cfg.security = SecurityConfig(**sec)
         if "rate_limit" in data:
             cfg.rate_limit = RateLimitConfig(**data["rate_limit"])
         return cfg
@@ -117,6 +122,8 @@ class MixConfig:
             "security": {
                 "dm_policy": self.security.dm_policy,
                 "allowed_users": self.security.allowed_users,
+                "cors_origins": self.security.cors_origins,
+                "engine_api_key": "***" if self.security.engine_api_key else "",
             },
             "rate_limit": {
                 "enabled": self.rate_limit.enabled,

@@ -29,17 +29,23 @@ def create_provider(config: ProviderConfig) -> LLMProvider:
 
 
 class OpenAICompatibleProvider(LLMProvider):
+    def __init__(self, config: ProviderConfig) -> None:
+        super().__init__(config)
+        self._client: Any = None
+
+    def _get_client(self) -> Any:
+        if self._client is None:
+            from openai import AsyncOpenAI
+            base_url = self.config.base_url or _default_base_url(self.config.provider)
+            self._client = AsyncOpenAI(api_key=self.config.api_key, base_url=base_url)
+        return self._client
+
     async def complete(self, messages: list[dict], tools: list[dict] | None = None, **kwargs) -> dict:
-        from openai import AsyncOpenAI
-
-        base_url = self.config.base_url or _default_base_url(self.config.provider)
-        client = AsyncOpenAI(api_key=self.config.api_key, base_url=base_url)
-
         create_kwargs: dict = {"model": self.config.model, "messages": messages, **kwargs}
         if tools:
             create_kwargs["tools"] = tools
 
-        response = await client.chat.completions.create(**create_kwargs)
+        response = await self._get_client().chat.completions.create(**create_kwargs)
         choice = response.choices[0]
         msg = choice.message
 
@@ -64,16 +70,12 @@ class OpenAICompatibleProvider(LLMProvider):
         }
 
     async def stream(self, messages: list[dict], tools: list[dict] | None = None, **kwargs):
-        from openai import AsyncOpenAI
-
-        base_url = self.config.base_url or _default_base_url(self.config.provider)
-        client = AsyncOpenAI(api_key=self.config.api_key, base_url=base_url)
 
         create_kwargs: dict = {"model": self.config.model, "messages": messages, "stream": True, **kwargs}
         if tools:
             create_kwargs["tools"] = tools
 
-        stream = await client.chat.completions.create(**create_kwargs)
+        stream = await self._get_client().chat.completions.create(**create_kwargs)
 
         tool_calls_acc: dict[int, dict] = {}
 
@@ -113,10 +115,18 @@ class OpenAICompatibleProvider(LLMProvider):
 
 
 class AnthropicProvider(LLMProvider):
-    async def complete(self, messages: list[dict], tools: list[dict] | None = None, **kwargs) -> dict:
-        from anthropic import AsyncAnthropic
+    def __init__(self, config: ProviderConfig) -> None:
+        super().__init__(config)
+        self._client: Any = None
 
-        client = AsyncAnthropic(api_key=self.config.api_key)
+    def _get_client(self) -> Any:
+        if self._client is None:
+            from anthropic import AsyncAnthropic
+            self._client = AsyncAnthropic(api_key=self.config.api_key)
+        return self._client
+
+    async def complete(self, messages: list[dict], tools: list[dict] | None = None, **kwargs) -> dict:
+        client = self._get_client()
         system_msg = ""
         chat_messages = []
         for m in messages:
@@ -168,9 +178,7 @@ class AnthropicProvider(LLMProvider):
 
     async def stream(self, messages: list[dict], tools: list[dict] | None = None, **kwargs):
         import anthropic as anthropic_mod
-        from anthropic import AsyncAnthropic
-
-        client = AsyncAnthropic(api_key=self.config.api_key)
+        client = self._get_client()
         system_msg = ""
         chat_messages = []
         for m in messages:

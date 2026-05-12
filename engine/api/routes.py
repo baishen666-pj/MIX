@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncIterator
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Query
+from starlette.responses import StreamingResponse
 from engine.api.schemas import (
     ChatRequest,
     ChatResponse,
@@ -130,6 +131,24 @@ async def stream_chat(ws: WebSocket):
         pass
 
 
+@router.get("/chat/stream")
+async def stream_chat_sse(message: str = Query(...), session_id: str | None = Query(None)):
+    if _agent_loop is None:
+        raise HTTPException(503, "Agent loop not initialized")
+
+    async def event_generator():
+        async for chunk in _agent_loop.chat_stream(message, session_id=session_id):
+            yield f"data: {json.dumps(chunk)}\n\n"
+            if chunk.get("done"):
+                break
+        yield "data: [DONE]\n\n"
+
+    if _learning:
+        await _learning.record_interaction("user", message, session_id=session_id)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
 # --- Memory ---
 
 @router.post("/memory/search", response_model=list[MemoryEntryResponse])
@@ -171,6 +190,63 @@ async def memory_delete(entry_id: str):
         raise HTTPException(503, "Memory store not initialized")
     deleted = await _memory.delete(entry_id)
     return {"deleted": deleted}
+
+
+@router.post("/memory")
+async def memory_create(body: dict):
+    if _memory is None:
+        raise HTTPException(503, "Memory store not initialized")
+    content = body.get("content", "")
+    if not content:
+        return {"error": "content is required"}
+    entry = MemoryEntry(
+        type=MemoryType(body.get("type", "context")),
+        content=content,
+        tags=body.get("tags", []),
+        source=body.get("source", "api"),
+    )
+    await _memory.store(entry)
+    return {"status": "ok", "id": entry.id}
+
+
+@router.post("/memory/ingest")
+async def memory_ingest(body: dict):
+    if _memory is None:
+        raise HTTPException(503, "Memory store not initialized")
+    text = body.get("text", "")
+    if not text:
+        return {"error": "text is required"}
+    chunk_size = body.get("chunk_size", 500)
+    source = body.get("source", "")
+    ids = await _memory.ingest_document(text, chunk_size=int(chunk_size), source=source)
+    return {"status": "ok", "chunks_created": len(ids), "ids": ids}
+
+
+# --- Sessions ---
+
+@router.get("/sessions")
+async def sessions_list():
+    if _memory is None:
+        return {"sessions": []}
+    return {"sessions": await _memory.list_sessions()}
+
+
+@router.delete("/sessions/{session_id}")
+async def session_delete(session_id: str):
+    if _memory is None:
+        raise HTTPException(503, "Memory store not initialized")
+    deleted = await _memory.delete_session(session_id)
+    return {"deleted": deleted}
+
+
+# --- Plugins ---
+
+@router.post("/plugins/reload")
+async def plugins_reload():
+    if _skill_registry is None:
+        return {"error": "Skill registry not initialized"}
+    count = _skill_registry.load_all()
+    return {"status": "ok", "skills_loaded": count}
 
 
 # --- Skills ---

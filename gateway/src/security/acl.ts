@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 export interface DmPairingConfig {
   policy: "pairing" | "open" | "closed";
   allowedUsers: string[];
@@ -36,7 +38,7 @@ export class DmPairing {
   }
 
   generatePairingCode(channel: string, userId: string): string {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const code = randomBytes(4).toString("hex").toUpperCase().substring(0, 6);
     const key = `${channel}:${userId}`;
     this.pendingRequests.set(key, {
       code,

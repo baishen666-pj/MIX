@@ -13,16 +13,27 @@ interface ChatViewProps {
 export function ChatView({ messages, connected, onSend, thinking }: ChatViewProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const autoResize = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 150) + "px";
+  };
 
   const handleSend = () => {
     const text = input.trim();
     if (!text || !connected) return;
     onSend(text);
     setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
   };
 
   return (
@@ -44,13 +55,20 @@ export function ChatView({ messages, connected, onSend, thinking }: ChatViewProp
         <div ref={messagesEndRef} />
       </main>
       <footer style={s.inputBar}>
-        <input
-          style={s.input}
+        <textarea
+          ref={textareaRef}
+          style={s.textarea}
           className="focus-ring"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-          placeholder="Type a message..."
+          rows={1}
+          onChange={(e) => { setInput(e.target.value); autoResize(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder="Type a message... (Shift+Enter for new line)"
           disabled={!connected}
         />
         <button
