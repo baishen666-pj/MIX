@@ -9,6 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from engine.agent.loop import AgentLoop
 from engine.agent.router import AgentRouter
+from engine.agent.bus import AgentBus
+from engine.agent.decomposer import TaskDecomposer
+from engine.agent.orchestrator import TaskOrchestrator
 from engine.api.routes import router, init_routes
 from engine.config import MixConfig
 from engine.memory.store import MemoryStore
@@ -57,8 +60,16 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     cron = CronScheduler(persist_path=config.memory.db_path.parent / "cron_jobs.json")
     agent_router = AgentRouter(config, memory)
     mcp = MCPClient()
+    bus = AgentBus()
+    decomposer = TaskDecomposer(provider=agent_loop.provider)
+    orchestrator = TaskOrchestrator()
 
-    init_routes(agent_loop, memory, skill_registry, learning, cron, agent_router, mcp, api_key=config.llm.api_key)
+    init_routes(
+        agent_loop, memory, skill_registry, learning, cron, agent_router, mcp,
+        api_key=config.llm.api_key,
+        decomposer=decomposer,
+        orchestrator=orchestrator,
+    )
     app.include_router(router, prefix="/api")
 
     @app.on_event("startup")

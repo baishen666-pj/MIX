@@ -53,6 +53,15 @@ class CronScheduleRequest(BaseModel):
     channel: str | None = None
 
 
+class DecomposeRequest(BaseModel):
+    task: str
+    max_subtasks: int = 5
+
+
+class OrchestrateRequest(BaseModel):
+    task: str
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str

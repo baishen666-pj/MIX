@@ -12,6 +12,8 @@ from engine.api.schemas import (
     MemoryEntryResponse,
     SkillExecuteRequest,
     CronScheduleRequest,
+    DecomposeRequest,
+    OrchestrateRequest,
 )
 from engine.agent.loop import AgentLoop
 from engine.memory.store import MemoryStore
@@ -34,6 +36,8 @@ _tools: ToolRegistry | None = None
 _agent_router: Any = None
 _mcp: Any = None
 _api_key: str = ""
+_decomposer: Any = None
+_orchestrator: Any = None
 
 
 def init_routes(
@@ -45,8 +49,10 @@ def init_routes(
     agent_router: Any = None,
     mcp: Any = None,
     api_key: str = "",
+    decomposer: Any = None,
+    orchestrator: Any = None,
 ) -> None:
-    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp, _api_key
+    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp, _api_key, _decomposer, _orchestrator
     _agent_loop = agent_loop
     _memory = memory
     _skill_registry = skill_registry
@@ -57,6 +63,8 @@ def init_routes(
     _agent_router = agent_router
     _mcp = mcp
     _api_key = api_key
+    _decomposer = decomposer
+    _orchestrator = orchestrator
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -243,6 +251,25 @@ async def agents_list():
     if _agent_router is None:
         return {"agents": [{"name": "main", "channels": [], "model": "default"}]}
     return {"agents": _agent_router.list_agents()}
+
+
+# --- Agent Communication ---
+
+@router.post("/agents/decompose")
+async def agents_decompose(req: DecomposeRequest):
+    if _decomposer is None:
+        raise HTTPException(503, "Task decomposer not initialized")
+    subtasks = await _decomposer.decompose(req.task, max_subtasks=req.max_subtasks)
+    return {"subtasks": [s.to_dict() for s in subtasks]}
+
+
+@router.post("/agents/orchestrate")
+async def agents_orchestrate(req: OrchestrateRequest):
+    if _decomposer is None or _orchestrator is None or _agent_loop is None:
+        raise HTTPException(503, "Orchestration pipeline not initialized")
+    subtasks = await _decomposer.decompose(req.task)
+    result = await _orchestrator.execute_plan(subtasks, _agent_loop)
+    return result
 
 
 # --- MCP ---
