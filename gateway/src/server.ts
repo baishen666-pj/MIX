@@ -20,6 +20,7 @@ import { IMessageChannel } from "./channels/imessage.js";
 import { FeishuChannel } from "./channels/feishu.js";
 import { DmPairing, DmSecurityFilter } from "./security/dm-pairing.js";
 import type { DmPairingConfig } from "./security/acl.js";
+import { ApiKeyAuth } from "./security/api-key.js";
 import { logger } from "./utils/logger.js";
 import { validate, chatRequestSchema, pairingApproveSchema, wsMessageSchema } from "./schemas.js";
 
@@ -147,6 +148,32 @@ export async function createServer(config: GatewayConfig) {
     channels.register(new FeishuChannel({ appId: feishuAppId, appSecret: feishuAppSecret }));
     logger.info("Feishu channel enabled");
   }
+
+  const apiKeyAuth = new ApiKeyAuth(process.env as Record<string, string | undefined>);
+
+  // Auth + rate limit on all routes except health and webhook endpoints
+  app.addHook("preHandler", (request, reply, done) => {
+    if (
+      request.url === "/api/health" ||
+      request.url.includes("/webhook")
+    ) {
+      done();
+      return;
+    }
+    apiKeyAuth.authenticate(request, reply, done);
+  });
+
+  // Rate limiting runs after auth
+  app.addHook("preHandler", (request, reply, done) => {
+    if (
+      request.url === "/api/health" ||
+      request.url.includes("/webhook")
+    ) {
+      done();
+      return;
+    }
+    apiKeyAuth.rateLimit(request, reply, done);
+  });
 
   const dmConfig: DmPairingConfig = {
     policy: (process.env.DM_POLICY as DmPairingConfig["policy"]) || "pairing",
