@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { MemoryEntry } from "../types";
+import { s } from "../styles";
 
 interface MemoryViewProps {
   memories: MemoryEntry[];
@@ -30,6 +31,7 @@ export function MemoryView({ memories, loading, error, onSearch }: MemoryViewPro
       <div style={s.searchBar}>
         <input
           style={s.input}
+          className="focus-ring"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -50,7 +52,7 @@ export function MemoryView({ memories, loading, error, onSearch }: MemoryViewPro
       {loading && <div style={s.empty}>Searching...</div>}
       {error && <div style={s.error}>{error}</div>}
       {visible.map((m) => (
-        <div key={m.id} style={s.card}>
+        <div key={m.id} style={s.card} className="card-hover">
           <div style={s.cardHeader}>
             {m.type} <span style={s.badge}>{m.tags.join(", ") || "no tags"}</span>
           </div>
@@ -59,28 +61,10 @@ export function MemoryView({ memories, loading, error, onSearch }: MemoryViewPro
         </div>
       ))}
       {visible.length < filtered.length && (
-        <button style={s.loadMore} onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+        <button style={s.loadMoreBtn} onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
           Load more ({filtered.length - visible.length} remaining)
         </button>
       )}
     </main>
   );
 }
-
-const s: Record<string, React.CSSProperties> = {
-  panel: { flex: 1, overflowY: "auto", padding: 20 },
-  panelTitle: { margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#fff" },
-  searchBar: { display: "flex", gap: 8, marginBottom: 12 },
-  input: { flex: 1, background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: "10px 14px", color: "#e5e5e5", fontSize: 14, outline: "none" },
-  searchBtn: { background: "#2563eb", color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer" },
-  filterBar: { display: "flex", gap: 8, marginBottom: 16 },
-  filterSelect: { background: "#1a1a1a", border: "1px solid #333", borderRadius: 6, padding: "6px 10px", color: "#a3a3a3", fontSize: 12, outline: "none" },
-  empty: { color: "#525252", fontSize: 14, textAlign: "center", padding: 20 },
-  error: { color: "#fca5a5", fontSize: 13, padding: 12, background: "#451a1a", borderRadius: 8, marginBottom: 12 },
-  card: { background: "#1a1a1a", border: "1px solid #262626", borderRadius: 10, padding: 14, marginBottom: 10 },
-  cardHeader: { fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 },
-  badge: { fontSize: 11, background: "#262626", color: "#a3a3a3", padding: "2px 8px", borderRadius: 4 },
-  cardDesc: { fontSize: 13, color: "#a3a3a3", lineHeight: 1.4 },
-  cardMeta: { fontSize: 11, color: "#525252", marginTop: 4 },
-  loadMore: { background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: "8px 16px", color: "#a3a3a3", fontSize: 13, cursor: "pointer", width: "100%", marginTop: 8 },
-};

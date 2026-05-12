@@ -1,4 +1,5 @@
 import type { ToolEvent as ToolEventType } from "../types";
+import { s } from "../styles";
 
 interface ToolEventProps {
   event: ToolEventType;
@@ -14,8 +15,3 @@ export function ToolEvent({ event }: ToolEventProps) {
     </div>
   );
 }
-
-const s = {
-  toolCall: { color: "#facc15", padding: "2px 8px", background: "#1c1917", borderRadius: 4, fontSize: 12, fontFamily: "monospace" } as React.CSSProperties,
-  toolResult: { color: "#4ade80", padding: "2px 8px", background: "#0c1a0c", borderRadius: 4, fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } as React.CSSProperties,
-};

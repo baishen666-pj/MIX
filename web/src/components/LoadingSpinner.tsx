@@ -1,3 +1,5 @@
+import { s } from "../styles";
+
 interface LoadingSpinnerProps {
   size?: "sm" | "md" | "lg";
 }
@@ -10,7 +12,3 @@ export function LoadingSpinner({ size = "md" }: LoadingSpinnerProps) {
     <span style={{ ...s.spinner, width: px, height: px, borderWidth: Math.max(2, px / 8) }} />
   );
 }
-
-const s = {
-  spinner: { display: "inline-block", borderStyle: "solid", borderColor: "#333 transparent transparent transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" } as React.CSSProperties,
-};

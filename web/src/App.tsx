@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { Tab, MemoryEntry, Skill } from "./types";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useApi, usePostApi } from "./hooks/useApi";
@@ -7,13 +7,31 @@ import { SkillsView } from "./components/SkillsView";
 import { MemoryView } from "./components/MemoryView";
 import { SettingsView } from "./components/SettingsView";
 import { ErrorBanner } from "./components/ErrorBanner";
+import { s } from "./styles";
 
 const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/chat`;
+
+function getInitialTheme(): "light" | "dark" {
+  if (typeof window === "undefined") return "dark";
+  const stored = localStorage.getItem("mix-theme");
+  if (stored === "light" || stored === "dark") return stored;
+  return "dark";
+}
 
 export function App() {
   const [tab, setTab] = useState<Tab>("chat");
   const [apiError, setApiError] = useState<string | null>(null);
   const [thinking, setThinking] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("mix-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, []);
 
   const { messages, connected, send } = useWebSocket(WS_URL);
   const { data: skillsData, loading: skillsLoading, error: skillsError } = useApi<Skill[]>("/api/skills");
@@ -55,7 +73,12 @@ export function App() {
             </button>
           ))}
         </nav>
-        <span style={connected ? s.status : s.statusError}>{connected ? "on" : "off"}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={connected ? s.status : s.statusError}>{connected ? "on" : "off"}</span>
+          <button onClick={toggleTheme} style={themeBtnStyle} aria-label="Toggle theme">
+            {theme === "dark" ? "☀" : "☾"}
+          </button>
+        </div>
       </header>
 
       {tab === "chat" && (
@@ -89,13 +112,14 @@ export function App() {
   );
 }
 
-const s: Record<string, React.CSSProperties> = {
-  container: { maxWidth: 800, margin: "0 auto", height: "100vh", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, sans-serif", background: "#0a0a0a", color: "#e5e5e5" },
-  header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", borderBottom: "1px solid #262626" },
-  title: { margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: 2, color: "#fff" },
-  nav: { display: "flex", gap: 4 },
-  navBtn: { background: "none", border: "none", color: "#737373", padding: "6px 12px", fontSize: 13, cursor: "pointer", borderRadius: 6 },
-  navActive: { background: "#1a1a1a", border: "1px solid #333", color: "#fff", padding: "6px 12px", fontSize: 13, cursor: "pointer", borderRadius: 6 },
-  status: { fontSize: 11, color: "#525252" },
-  statusError: { fontSize: 11, color: "#ef4444" },
+const themeBtnStyle: React.CSSProperties = {
+  background: "none",
+  border: "1px solid var(--color-border)",
+  borderRadius: "var(--radius-md)",
+  color: "var(--color-text-secondary)",
+  cursor: "pointer",
+  fontSize: 16,
+  padding: "2px 8px",
+  lineHeight: 1,
+  transition: "background var(--transition-fast), border-color var(--transition-fast)",
 };

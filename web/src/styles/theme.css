@@ -1,0 +1,178 @@
+/* ===== MIX Web UI Theme System ===== */
+
+/* --- Keyframe Animations --- */
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+@keyframes pulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Light Theme (default :root) --- */
+:root {
+  /* Colors - Background */
+  --color-bg: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f0f1f3;
+  --color-surface-hover: #e9ecef;
+
+  /* Colors - Text */
+  --color-text: #1a1a1a;
+  --color-text-secondary: #555;
+  --color-text-muted: #868e96;
+
+  /* Colors - Accent */
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-text: #ffffff;
+
+  /* Colors - Status */
+  --color-success: #16a34a;
+  --color-warning: #ca8a04;
+  --color-error: #dc2626;
+  --color-error-bg: #fef2f2;
+  --color-error-border: #fecaca;
+  --color-error-text: #991b1b;
+
+  /* Colors - Borders */
+  --color-border: #dee2e6;
+  --color-border-subtle: #e9ecef;
+
+  /* Colors - Tool Events */
+  --color-tool-call-text: #92400e;
+  --color-tool-call-bg: #fef3c7;
+  --color-tool-result-text: #166534;
+  --color-tool-result-bg: #dcfce7;
+
+  /* Colors - Nav */
+  --color-nav-btn: #868e96;
+  --color-nav-active-bg: #e9ecef;
+  --color-nav-active-border: #dee2e6;
+  --color-nav-active-text: #1a1a1a;
+
+  /* Typography */
+  --font-family: system-ui, -apple-system, sans-serif;
+  --font-mono: monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-bubble: 16px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+}
+
+/* --- Dark Theme --- */
+[data-theme="dark"] {
+  /* Colors - Background */
+  --color-bg: #0a0a0a;
+  --color-surface: #1a1a1a;
+  --color-surface-raised: #1f1f1f;
+  --color-surface-hover: #262626;
+
+  /* Colors - Text */
+  --color-text: #e5e5e5;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted: #525252;
+
+  /* Colors - Accent */
+  --color-accent: #2563eb;
+  --color-accent-hover: #3b82f6;
+  --color-accent-text: #ffffff;
+
+  /* Colors - Status */
+  --color-success: #4ade80;
+  --color-warning: #facc15;
+  --color-error: #ef4444;
+  --color-error-bg: #451a1a;
+  --color-error-border: #7f1d1d;
+  --color-error-text: #fca5a5;
+
+  /* Colors - Borders */
+  --color-border: #262626;
+  --color-border-subtle: #1a1a1a;
+
+  /* Colors - Tool Events */
+  --color-tool-call-text: #facc15;
+  --color-tool-call-bg: #1c1917;
+  --color-tool-result-text: #4ade80;
+  --color-tool-result-bg: #0c1a0c;
+
+  /* Colors - Nav */
+  --color-nav-btn: #737373;
+  --color-nav-active-bg: #1a1a1a;
+  --color-nav-active-border: #333;
+  --color-nav-active-text: #ffffff;
+}
+
+/* --- Utility Animation Classes --- */
+.msg-fade-in {
+  animation: fadeInUp 0.3s ease both;
+}
+
+/* --- Hover Transitions (applied via className) --- */
+.card-hover {
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.card-hover:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+.chip-hover {
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.chip-hover:hover {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.focus-ring {
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.focus-ring:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  outline: none;
+}
+
+/* --- Responsive Breakpoints --- */
+@media (max-width: 640px) {
+  :root,
+  [data-theme="dark"] {
+    --space-xl: 12px;
+    --space-lg: 10px;
+    --font-size-lg: 16px;
+  }
+}
