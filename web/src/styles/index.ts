@@ -372,6 +372,54 @@ export const s: Record<string, CSSProperties> = {
     transition: "color var(--transition-fast), border-color var(--transition-fast)",
   },
 
+  /* Markdown styles */
+  inlineCode: {
+    background: "var(--color-surface-hover)",
+    padding: "1px 6px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: 13,
+    fontFamily: "var(--font-mono)",
+  },
+  codeBlock: {
+    background: "var(--color-surface-hover)",
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius-md)",
+    padding: 12,
+    fontSize: 13,
+    fontFamily: "var(--font-mono)",
+    overflow: "auto",
+    margin: "8px 0",
+  },
+  codeCopyBtn: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    background: "var(--color-surface)",
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius-sm)",
+    color: "var(--color-text-muted)",
+    fontSize: 10,
+    padding: "2px 6px",
+    cursor: "pointer",
+    zIndex: 1,
+  },
+  mdLink: {
+    color: "var(--color-accent)",
+    textDecoration: "underline",
+  },
+  mdTable: {
+    borderCollapse: "collapse",
+    width: "100%",
+    fontSize: 13,
+    margin: "8px 0",
+  },
+  mdBlockquote: {
+    borderLeft: "3px solid var(--color-accent)",
+    margin: "8px 0",
+    paddingLeft: 12,
+    color: "var(--color-text-secondary)",
+  },
+
   /* Sidebar */
   sidebarWrapper: {
     display: "flex",

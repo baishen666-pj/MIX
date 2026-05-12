@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncIterator
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Query, UploadFile, File
 from starlette.responses import StreamingResponse
 from engine.api.schemas import (
     ChatRequest,
@@ -19,6 +19,7 @@ from engine.api.schemas import (
 from engine.agent.loop import AgentLoop
 from engine.memory.store import MemoryStore
 from engine.memory.types import MemoryType
+from engine.memory.document_parser import extract_text
 from engine.skills.registry import SkillRegistry
 from engine.skills.loader import SkillLoader
 from engine.learning.loop import LearningLoop
@@ -220,6 +221,28 @@ async def memory_ingest(body: dict):
     source = body.get("source", "")
     ids = await _memory.ingest_document(text, chunk_size=int(chunk_size), source=source)
     return {"status": "ok", "chunks_created": len(ids), "ids": ids}
+
+
+@router.post("/memory/upload")
+async def memory_upload(file: UploadFile = File(...)):
+    if _memory is None:
+        raise HTTPException(503, "Memory store not initialized")
+    import tempfile
+    import os
+    suffix = Path(file.filename or "file.txt").suffix
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        text = extract_text(tmp_path, mime_type=file.content_type or "")
+        if not text.strip():
+            return {"error": "No text content extracted from file"}
+        ids = await _memory.ingest_document(text, source=file.filename or "upload")
+        return {"status": "ok", "filename": file.filename, "chunks_created": len(ids)}
+    finally:
+        os.unlink(tmp_path)
 
 
 # --- Sessions ---

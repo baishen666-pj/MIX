@@ -5,6 +5,7 @@ import { useApi, usePostApi } from "./hooks/useApi";
 import { ChatView } from "./components/ChatView";
 import { SkillsView } from "./components/SkillsView";
 import { MemoryView } from "./components/MemoryView";
+import { KnowledgeBase } from "./components/KnowledgeBase";
 import { SettingsView } from "./components/SettingsView";
 import { ConversationSidebar } from "./components/ConversationSidebar";
 import { ErrorBanner } from "./components/ErrorBanner";
@@ -112,6 +113,7 @@ export function App() {
         {tab === "memory" && (
           <>
             {searchError && <ErrorBanner message={searchError} onDismiss={() => setApiError(null)} />}
+            <KnowledgeBase onRefresh={() => handleSearch("")} />
             <MemoryView
               memories={memories}
               loading={searchLoading}

@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Message } from "../types";
 import { ToolEvent } from "./ToolEvent";
 import { s } from "../styles";
@@ -21,15 +23,72 @@ export function MessageBubble({ message, onRetry, onDelete }: MessageBubbleProps
     });
   }, [message.content]);
 
+  const handleCopyCode = useCallback((code: string) => {
+    navigator.clipboard.writeText(code);
+  }, []);
+
   return (
     <div
       style={isUser ? s.userBubble : s.botBubble}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-        {message.content}
-      </div>
+      {isUser ? (
+        <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+          {message.content}
+        </div>
+      ) : (
+        <div className="markdown-body">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ className, children, ...props }) {
+                const isInline = !className;
+                const codeStr = String(children).replace(/\n$/, "");
+                if (isInline) {
+                  return <code style={s.inlineCode} {...props}>{children}</code>;
+                }
+                return (
+                  <div style={{ position: "relative" }}>
+                    <button
+                      onClick={() => handleCopyCode(codeStr)}
+                      style={s.codeCopyBtn}
+                      title="Copy code"
+                    >
+                      Copy
+                    </button>
+                    <pre style={s.codeBlock}>
+                      <code className={className} {...props}>{children}</code>
+                    </pre>
+                  </div>
+                );
+              },
+              pre({ children }) {
+                return <>{children}</>;
+              },
+              a({ href, children }) {
+                return (
+                  <a href={href} target="_blank" rel="noopener noreferrer" style={s.mdLink}>
+                    {children}
+                  </a>
+                );
+              },
+              table({ children }) {
+                return (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={s.mdTable}>{children}</table>
+                  </div>
+                );
+              },
+              blockquote({ children }) {
+                return <blockquote style={s.mdBlockquote}>{children}</blockquote>;
+              },
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </div>
+      )}
       {message.toolEvents && message.toolEvents.length > 0 && (
         <div style={s.toolEvents}>
           {message.toolEvents.map((ev, i) => (

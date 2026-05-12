@@ -114,4 +114,14 @@ export class EngineBridge {
       body: JSON.stringify(body),
     });
   }
+
+  async uploadFile(file: File): Promise<{status: string; filename: string; chunks_created: number}> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${this.baseUrl}/api/memory/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    return res.json() as Promise<{status: string; filename: string; chunks_created: number}>;
+  }
 }

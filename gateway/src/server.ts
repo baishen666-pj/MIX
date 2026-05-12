@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
+import multipart from "@fastify/multipart";
 import type { GatewayConfig } from "./utils/config.js";
 import { EngineBridge } from "./bridge.js";
 import { ChannelRegistry } from "./channels/registry.js";
@@ -32,6 +33,7 @@ export async function createServer(config: GatewayConfig) {
     : ["http://localhost:8080"];
   await app.register(cors, { origin: corsOrigins });
   await app.register(websocket);
+  await app.register(multipart);
 
   const bridge = new EngineBridge({
     engineHost: config.engine.host,
@@ -359,6 +361,23 @@ export async function createServer(config: GatewayConfig) {
         body.source ? String(body.source) : undefined,
         body.chunk_size ? Number(body.chunk_size) : undefined,
       );
+      return result;
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.post("/api/memory/upload", async (request, reply) => {
+    try {
+      const data = await request.file();
+      if (!data) {
+        reply.code(400);
+        return { error: "No file uploaded" };
+      }
+      const buffer = await data.toBuffer();
+      const file = new File([buffer], data.filename, { type: data.mimetype });
+      const result = await bridge.uploadFile(file);
       return result;
     } catch (err) {
       reply.code(502);
