@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ListSkeleton } from "./Skeleton";
 
 interface Collection {
   id: string;
@@ -162,7 +163,7 @@ export function RAGView() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  if (loading) return <div className="mix-panel" style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-base)", textAlign: "center" }}>Loading...</div>;
+  if (loading) return <div className="mix-panel"><ListSkeleton count={3} /></div>;
 
   return (
     <div className="mix-panel">

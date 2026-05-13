@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { s } from "../styles";
+import { ListSkeleton } from "./Skeleton";
 
 interface MetricsData {
   uptime_seconds: number;
@@ -49,7 +50,7 @@ export function DashboardView() {
   }
 
   if (!metrics) {
-    return <div style={s.panel}><div style={s.sectionTitle}>Dashboard</div><div style={s.empty}>Loading...</div></div>;
+    return <div style={s.panel}><div style={s.sectionTitle}>Dashboard</div><ListSkeleton count={4} /></div>;
   }
 
   const topEndpoints = Object.entries(metrics.requests.by_endpoint)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { s } from "../styles";
+import { ListSkeleton } from "./Skeleton";
 
 interface SettingsViewProps {
   health: Record<string, unknown>;
@@ -63,7 +64,7 @@ export function SettingsView({ health, loading, error }: SettingsViewProps) {
   return (
     <main style={s.panel}>
       <h2 style={s.panelTitle}>Settings</h2>
-      {loading && <div style={s.empty}>Loading...</div>}
+      {loading && <ListSkeleton count={3} />}
       {error && <div style={s.error}>{error}</div>}
 
       {/* System Status */}

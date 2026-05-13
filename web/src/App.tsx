@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import type { Tab, Skill } from "./types";
 import type { MemoryEntry } from "./types";
@@ -32,6 +32,7 @@ function isValidTab(value: string): value is Tab {
 export function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const {
     theme, setTheme,
@@ -54,6 +55,7 @@ export function App() {
 
   const handleTabSwitch = useCallback((tabKey: Tab) => {
     navigate("/" + tabKey);
+    setMobileMenuOpen(false);
   }, [navigate]);
 
   const toggleTheme = useCallback(() => {
@@ -127,6 +129,16 @@ export function App() {
     return `${icons[tabKey]} ${t(keys[tabKey])}`;
   };
 
+  // Close mobile menu on Escape or outside click
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [mobileMenuOpen]);
+
   return (
     <div style={s.sidebarWrapper}>
       <ConversationSidebar
@@ -135,15 +147,57 @@ export function App() {
         onNewSession={handleNewSession}
       />
       <div className="mix-container">
-        <header className="mix-header">
+        <header className="mix-header" style={{ position: "relative" }}>
           <h1 style={s.title}>MIX</h1>
-          <nav style={s.nav} role="tablist" aria-label="Main navigation">
+          <nav className="mix-nav-desktop" style={s.nav} role="tablist" aria-label="Main navigation">
             {VALID_TABS.map((tabKey) => (
               <button key={tabKey} onClick={() => handleTabSwitch(tabKey)} style={tab === tabKey ? s.navActive : s.navBtn} role="tab" aria-selected={tab === tabKey}>
                 {tabLabel(tabKey)}
               </button>
             ))}
           </nav>
+          <button
+            className="mix-nav-mobile-btn mix-btn"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            style={{ display: "none", fontSize: 18, padding: "4px 10px" }}
+            aria-label="Toggle navigation menu"
+          >
+            {"☰"}
+          </button>
+          {mobileMenuOpen && (
+            <div
+              className="mix-nav-mobile"
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                background: "var(--color-surface)",
+                borderBottom: "1px solid var(--color-border)",
+                padding: "8px 12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                zIndex: 100,
+              }}
+            >
+              {VALID_TABS.map((tabKey) => (
+                <button
+                  key={tabKey}
+                  onClick={() => handleTabSwitch(tabKey)}
+                  style={{
+                    ...(tab === tabKey ? s.navActive : s.navBtn),
+                    textAlign: "left" as const,
+                    width: "100%",
+                  }}
+                  role="tab"
+                  aria-selected={tab === tabKey}
+                >
+                  {tabLabel(tabKey)}
+                </button>
+              ))}
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {ttfb !== null && <span style={s.status}>{ttfb}ms</span>}
             <span style={connected ? s.status : s.statusError}>{connected ? t("status.on") : t("status.off")}</span>

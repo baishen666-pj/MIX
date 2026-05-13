@@ -228,6 +228,27 @@
   }
 }
 
+@media (max-width: 768px) {
+  .mix-header {
+    flex-wrap: wrap;
+  }
+  .mix-nav-desktop {
+    display: none;
+  }
+  .mix-nav-mobile-btn {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .mix-nav-mobile-btn {
+    display: none !important;
+  }
+  .mix-nav-mobile {
+    display: none !important;
+  }
+}
+
 /* --- Common Layout Utilities --- */
 .mix-container {
   @apply max-w-[800px] mx-auto h-screen flex flex-col;

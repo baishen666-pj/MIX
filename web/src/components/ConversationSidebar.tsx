@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { EmptyState } from "./EmptyState";
 import { s } from "../styles";
 
 interface Session {
@@ -100,7 +101,9 @@ export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSe
       />
       <div style={s.sidebarList}>
         {sessions.length === 0 && (
-          <div style={s.empty}>{searchQuery ? "No results" : "No sessions yet"}</div>
+          searchQuery
+            ? <EmptyState icon="🔍" title="No results" description="Try a different search term" />
+            : <EmptyState icon="💬" title="No sessions yet" description="Start a conversation to see sessions here" />
         )}
         {sessions.map((session) => (
           <div

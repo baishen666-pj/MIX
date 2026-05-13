@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import type { Skill } from "../types";
+import { EmptyState } from "./EmptyState";
 import { s } from "../styles";
 
 interface InstalledPlugin {
@@ -160,9 +161,11 @@ export function SkillsView({ skills, loading, error }: SkillsViewProps) {
 
       {activeTab === "skills" && (
         <>
-          {loading && <div style={s.empty}>Loading...</div>}
+          {loading && <EmptyState icon="⚙" title="Loading skills..." description="Please wait while skills are loaded" />}
           {error && <div style={s.error}>{error}</div>}
-          {!loading && !error && skills.length === 0 && <div style={s.empty}>No skills loaded</div>}
+          {!loading && !error && skills.length === 0 && (
+            <EmptyState icon="⚡" title="No skills loaded" description="Install a plugin or configure skills to get started" />
+          )}
           {skills.map((sk) => (
             <div key={sk.name} style={s.card} className="card-hover">
               <div style={s.cardHeader}>

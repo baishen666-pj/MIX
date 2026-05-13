@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { EmptyState } from "./EmptyState";
 
 interface ToolRecord {
   id: string;
@@ -146,7 +147,9 @@ export function ToolsView() {
 
       {viewTab === "history" && (
         <div>
-          {history.length === 0 && <div style={{ color: "var(--color-text-muted)" }}>No execution history yet.</div>}
+          {history.length === 0 && (
+            <EmptyState icon="📋" title="No execution history yet" description="Tool executions will appear here as they are used" />
+          )}
           {history.map((r) => (
             <div key={r.id} className="mix-card" style={{ marginBottom: 8, padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -173,7 +176,7 @@ export function ToolsView() {
           {(() => {
             const chainRecords = history.filter((r) => r.chain_id);
             if (chainRecords.length === 0) {
-              return <div style={{ color: "var(--color-text-muted)" }}>No chain executions recorded yet.</div>;
+              return <EmptyState icon="🔗" title="No chain executions recorded yet" description="Multi-step tool chains will appear here" />;
             }
             const groups: Record<string, ToolRecord[]> = {};
             for (const r of chainRecords) {
@@ -233,7 +236,9 @@ export function ToolsView() {
 
       {viewTab === "approval" && (
         <div>
-          {pending.length === 0 && <div style={{ color: "var(--color-text-muted)" }}>No pending approvals.</div>}
+          {pending.length === 0 && (
+            <EmptyState icon="✅" title="No pending approvals" description="All tool requests have been handled" />
+          )}
           {pending.map((req) => (
             <div key={req.id} className="mix-card" style={{ marginBottom: 8, padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { AgentInfo, AgentRole, CollaborationPlan } from "../types";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ListSkeleton } from "./Skeleton";
 
 type AgentTab = "agents" | "collaborate" | "plans";
 
@@ -204,7 +205,7 @@ export function AgentsView() {
     return map[role] || "var(--color-role-general)";
   };
 
-  if (loading) return <div className="mix-panel" style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-base)", textAlign: "center" }}>Loading agents...</div>;
+  if (loading) return <div className="mix-panel"><ListSkeleton count={4} /></div>;
   if (error) return <div className="mix-error" style={{ color: "var(--color-status-error)" }}>{error}</div>;
 
   return (
