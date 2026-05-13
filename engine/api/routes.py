@@ -101,6 +101,16 @@ async def metrics_endpoint():
     return data
 
 
+@router.get("/metrics/prometheus")
+async def metrics_prometheus():
+    if _metrics is None:
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse("# Metrics not initialized\n")
+    text = await _metrics.prometheus_format()
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(text, media_type="text/plain; version=0.0.4; charset=utf-8")
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     if _agent_loop is None:
@@ -266,6 +276,38 @@ async def session_delete(session_id: str):
     return {"deleted": deleted}
 
 
+@router.get("/sessions/search")
+async def sessions_search(q: str = "", limit: int = 20, offset: int = 0):
+    if _memory is None:
+        return {"sessions": []}
+    if not q:
+        return {"sessions": await _memory.list_sessions()}
+    return {"sessions": await _memory.search_sessions(q, limit=limit, offset=offset)}
+
+
+@router.get("/sessions/{session_id}/export")
+async def session_export(session_id: str, format: str = "json"):
+    if _memory is None:
+        raise HTTPException(503, "Memory store not initialized")
+    result = await _memory.export_session(session_id, format=format)
+    if result is None:
+        raise HTTPException(404, "Session not found")
+    if format == "markdown":
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse(result)
+    return result
+
+
+@router.get("/sessions/{session_id}")
+async def session_get(session_id: str):
+    if _memory is None:
+        raise HTTPException(503, "Memory store not initialized")
+    data = await _memory.load_session(session_id)
+    if data is None:
+        raise HTTPException(404, "Session not found")
+    return {"id": session_id, "data": data}
+
+
 # --- Plugins ---
 
 @router.post("/plugins/reload")
@@ -274,6 +316,53 @@ async def plugins_reload():
         return {"error": "Skill registry not initialized"}
     count = _skill_registry.load_all()
     return {"status": "ok", "skills_loaded": count}
+
+
+@router.post("/plugins/install")
+async def plugins_install(req: dict):
+    if _skill_registry is None:
+        raise HTTPException(503, "Skill registry not initialized")
+    source = req.get("source", "")
+    version = req.get("version")
+    if not source:
+        raise HTTPException(400, "Missing 'source' field")
+    manifest = _skill_registry.install(source, version=version)
+    if manifest is None:
+        raise HTTPException(400, f"Failed to install from '{source}'")
+    return {"status": "ok", "skill": {"name": manifest.name, "version": manifest.version}}
+
+
+@router.post("/plugins/uninstall")
+async def plugins_uninstall(req: dict):
+    if _skill_registry is None:
+        raise HTTPException(503, "Skill registry not initialized")
+    name = req.get("name", "")
+    if not name:
+        raise HTTPException(400, "Missing 'name' field")
+    removed = _skill_registry.uninstall(name)
+    if not removed:
+        raise HTTPException(404, f"Skill '{name}' not found")
+    return {"status": "ok", "removed": name}
+
+
+@router.post("/plugins/update")
+async def plugins_update(req: dict):
+    if _skill_registry is None:
+        raise HTTPException(503, "Skill registry not initialized")
+    name = req.get("name", "")
+    if not name:
+        raise HTTPException(400, "Missing 'name' field")
+    manifest = _skill_registry.update(name)
+    if manifest is None:
+        raise HTTPException(404, f"Skill '{name}' not found or has no source URL")
+    return {"status": "ok", "skill": {"name": manifest.name, "version": manifest.version}}
+
+
+@router.get("/plugins/available")
+async def plugins_available(q: str = ""):
+    if _skill_registry is None:
+        return {"plugins": []}
+    return {"plugins": _skill_registry.list_available(query=q)}
 
 
 # --- Skills ---

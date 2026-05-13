@@ -177,6 +177,63 @@ class MetricsCollector:
             self._active_sessions = 0
             self._memory_entries = 0
 
+    async def prometheus_format(self) -> str:
+        """Return metrics in Prometheus text exposition format."""
+        metrics = await self.get_metrics()
+        lines: list[str] = []
+
+        lines.append("# HELP mix_uptime_seconds Total uptime in seconds")
+        lines.append("# TYPE mix_uptime_seconds gauge")
+        lines.append(f'mix_uptime_seconds {metrics["uptime_seconds"]}')
+
+        lines.append("")
+        lines.append("# HELP mix_requests_total Total HTTP requests")
+        lines.append("# TYPE mix_requests_total counter")
+        lines.append(f'mix_requests_total {metrics["requests"]["total"]}')
+
+        lines.append("")
+        lines.append("# HELP mix_request_duration_ms Request duration in milliseconds")
+        lines.append("# TYPE mix_request_duration_ms summary")
+        lines.append(f'mix_request_duration_ms{{quantile="avg"}} {metrics["requests"]["avg_duration_ms"]}')
+        lines.append(f'mix_request_duration_ms{{quantile="p95"}} {metrics["requests"]["p95_duration_ms"]}')
+
+        for endpoint, count in metrics["requests"]["by_endpoint"].items():
+            safe = endpoint.replace("/", "_").strip("_") or "root"
+            lines.append(f'mix_requests_by_endpoint{{endpoint="{safe}"}} {count}')
+
+        for status, count in metrics["requests"]["by_status"].items():
+            lines.append(f'mix_requests_by_status{{status="{status}"}} {count}')
+
+        lines.append("")
+        lines.append("# HELP mix_llm_calls_total Total LLM API calls")
+        lines.append("# TYPE mix_llm_calls_total counter")
+        lines.append(f'mix_llm_calls_total {metrics["llm"]["total_calls"]}')
+
+        lines.append("")
+        lines.append("# HELP mix_llm_tokens_total Total LLM tokens used")
+        lines.append("# TYPE mix_llm_tokens_total counter")
+        lines.append(f'mix_llm_tokens_total {metrics["llm"]["total_tokens"]}')
+
+        lines.append("")
+        lines.append("# HELP mix_llm_latency_ms LLM call latency in milliseconds")
+        lines.append("# TYPE mix_llm_latency_ms gauge")
+        lines.append(f'mix_llm_latency_ms {metrics["llm"]["avg_latency_ms"]}')
+
+        for provider, count in metrics["llm"]["by_provider"].items():
+            lines.append(f'mix_llm_calls_by_provider{{provider="{provider}"}} {count}')
+
+        lines.append("")
+        lines.append("# HELP mix_active_sessions Number of active sessions")
+        lines.append("# TYPE mix_active_sessions gauge")
+        lines.append(f'mix_active_sessions {metrics["sessions"]["active_count"]}')
+
+        lines.append("")
+        lines.append("# HELP mix_memory_entries Total memory entries")
+        lines.append("# TYPE mix_memory_entries gauge")
+        lines.append(f'mix_memory_entries {metrics["memory"]["entry_count"]}')
+
+        return "\n".join(lines) + "\n"
+
 
 def _percentile(values: list[float], pct: int) -> float:
     """Compute the given percentile from a list of values.

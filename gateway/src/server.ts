@@ -159,12 +159,14 @@ export async function createServer(config: GatewayConfig) {
 
   const apiKeyAuth = new ApiKeyAuth(process.env as Record<string, string | undefined>);
 
-  // Auth + rate limit on all routes except health and webhook endpoints
+  const skipAuth = (url: string) =>
+    url === "/api/health" ||
+    url.includes("/webhook") ||
+    url.startsWith("/ws/");
+
+  // Auth + rate limit on all routes except health, webhook, and WS endpoints
   app.addHook("preHandler", (request, reply, done) => {
-    if (
-      request.url === "/api/health" ||
-      request.url.includes("/webhook")
-    ) {
+    if (skipAuth(request.url)) {
       done();
       return;
     }
@@ -173,10 +175,7 @@ export async function createServer(config: GatewayConfig) {
 
   // Rate limiting runs after auth
   app.addHook("preHandler", (request, reply, done) => {
-    if (
-      request.url === "/api/health" ||
-      request.url.includes("/webhook")
-    ) {
+    if (skipAuth(request.url)) {
       done();
       return;
     }
@@ -291,6 +290,17 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
+  app.get("/metrics", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/metrics/prometheus");
+      reply.type("text/plain; version=0.0.4; charset=utf-8");
+      return res.text();
+    } catch {
+      reply.code(502);
+      return "# Engine unreachable\n";
+    }
+  });
+
   app.post("/api/chat", async (request, reply) => {
     let body;
     try {
@@ -361,6 +371,64 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
+  // Plugin management proxies
+  app.post("/api/plugins/install", async (request, reply) => {
+    try {
+      const body = request.body as Record<string, unknown>;
+      const res = await fetch(`${bridge["baseUrl"]}/api/plugins/install`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.post("/api/plugins/uninstall", async (request, reply) => {
+    try {
+      const body = request.body as Record<string, unknown>;
+      const res = await fetch(`${bridge["baseUrl"]}/api/plugins/uninstall`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.post("/api/plugins/update", async (request, reply) => {
+    try {
+      const body = request.body as Record<string, unknown>;
+      const res = await fetch(`${bridge["baseUrl"]}/api/plugins/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.get("/api/plugins/available", async (request, reply) => {
+    try {
+      const query = request.query as Record<string, string>;
+      const params = new URLSearchParams(query);
+      const res = await bridge.proxyGet(`/api/plugins/available?${params}`);
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
   app.post("/api/memory/search", async (request, reply) => {
     try {
       const res = await bridge.proxyPost("/api/memory/search", request.body);
@@ -424,8 +492,59 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
+  app.get("/api/sessions/search", async (request, reply) => {
+    try {
+      const query = request.query as Record<string, string>;
+      const params = new URLSearchParams(query);
+      const res = await bridge.proxyGet(`/api/sessions/search?${params}`);
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.get("/api/sessions/:sessionId/export", async (request, reply) => {
+    try {
+      const { sessionId } = request.params as { sessionId: string };
+      const query = request.query as Record<string, string>;
+      const params = new URLSearchParams(query);
+      const res = await bridge.proxyGet(`/api/sessions/${sessionId}/export?${params}`);
+      const contentType = res.headers.get("content-type") || "application/json";
+      reply.type(contentType);
+      if (contentType.includes("text/plain")) {
+        return res.text();
+      }
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.get("/api/sessions/:sessionId", async (request, reply) => {
+    try {
+      const { sessionId } = request.params as { sessionId: string };
+      const res = await bridge.proxyGet(`/api/sessions/${sessionId}`);
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
   app.register(async function (fastify) {
-    fastify.get("/ws/chat", { websocket: true }, (socket, _req) => {
+    fastify.get("/ws/chat", { websocket: true }, (socket, req) => {
+      if (apiKeyAuth.isEnabled()) {
+        const token = req.query?.token as string | undefined
+          || (req.headers["sec-websocket-protocol"] as string | undefined)
+          || req.headers.authorization?.replace("Bearer ", "");
+        if (!token || !apiKeyAuth.validateKey(token)) {
+          socket.close(4001, "Unauthorized");
+          return;
+        }
+      }
+
       socket.on("message", async (raw: Buffer) => {
         let data;
         try {

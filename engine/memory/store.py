@@ -326,3 +326,37 @@ class MemoryStore:
             await self._db.commit()
             self._pending_writes = 0
         return cursor.rowcount > 0
+
+    async def search_sessions(self, query: str, limit: int = 20, offset: int = 0) -> list[dict]:
+        assert self._db is not None
+        import json
+        pattern = f"%{query}%"
+        cursor = await self._db.execute(
+            "SELECT id, data, updated_at FROM sessions WHERE data LIKE ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+            (pattern, limit, offset),
+        )
+        rows = await cursor.fetchall()
+        results: list[dict] = []
+        for r in rows:
+            data = json.loads(r[1])
+            results.append({"id": r[0], "updated_at": r[2], "message_count": len(data.get("messages", [])) if isinstance(data, dict) else 0})
+        return results
+
+    async def export_session(self, session_id: str, format: str = "json") -> dict | str | None:
+        assert self._db is not None
+        import json
+        cursor = await self._db.execute("SELECT id, data, updated_at FROM sessions WHERE id = ?", (session_id,))
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        data = json.loads(row[1])
+        if format == "markdown":
+            lines = [f"# Session {row[0]}", f"Updated: {row[2]}", ""]
+            messages = data.get("messages", []) if isinstance(data, dict) else []
+            for msg in messages:
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                lines.append(f"**{role}**: {content}")
+                lines.append("")
+            return "\n".join(lines)
+        return {"id": row[0], "updated_at": row[2], "data": data}

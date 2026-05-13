@@ -15,17 +15,21 @@ interface ConversationSidebarProps {
 export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSession }: ConversationSidebarProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch("/api/sessions");
+      const url = searchQuery
+        ? `/api/sessions/search?q=${encodeURIComponent(searchQuery)}`
+        : "/api/sessions";
+      const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json();
       setSessions(data.sessions ?? []);
     } catch {
       // Error handled silently
     }
-  }, []);
+  }, [searchQuery]);
 
   useEffect(() => {
     fetchSessions();
@@ -42,6 +46,23 @@ export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSe
       // Error handled silently
     }
   }, [fetchSessions]);
+
+  const handleExport = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/sessions/${id}/export?format=markdown`);
+      const text = await res.text();
+      const blob = new Blob([text], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `session-${id.slice(0, 8)}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Error handled silently
+    }
+  }, []);
 
   if (collapsed) {
     return (
@@ -67,9 +88,17 @@ export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSe
           </button>
         </div>
       </div>
+      <input
+        type="text"
+        placeholder="Search sessions..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        style={s.searchInput}
+        aria-label="Search sessions"
+      />
       <div style={s.sidebarList}>
         {sessions.length === 0 && (
-          <div style={s.empty}>No sessions yet</div>
+          <div style={s.empty}>{searchQuery ? "No results" : "No sessions yet"}</div>
         )}
         {sessions.map((session) => (
           <div
@@ -81,13 +110,23 @@ export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSe
             <div style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
               {session.id.slice(0, 12)}...
             </div>
-            <button
-              onClick={(e) => handleDelete(session.id, e)}
-              style={s.sidebarDeleteBtn}
-              aria-label="Delete session"
-            >
-              &#10005;
-            </button>
+            <div style={{ display: "flex", gap: 2 }}>
+              <button
+                onClick={(e) => handleExport(session.id, e)}
+                style={s.sidebarActionBtn}
+                aria-label="Export session"
+                title="Export as Markdown"
+              >
+                &#8615;
+              </button>
+              <button
+                onClick={(e) => handleDelete(session.id, e)}
+                style={s.sidebarDeleteBtn}
+                aria-label="Delete session"
+              >
+                &#10005;
+              </button>
+            </div>
           </div>
         ))}
       </div>

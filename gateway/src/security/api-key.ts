@@ -38,6 +38,14 @@ export class ApiKeyAuth {
     }
   }
 
+  isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  validateKey(key: string): boolean {
+    return this.validKeys.has(key);
+  }
+
   extractKey(request: FastifyRequest): string | undefined {
     const authHeader = request.headers.authorization;
     if (authHeader) {
