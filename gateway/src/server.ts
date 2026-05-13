@@ -595,6 +595,103 @@ export async function createServer(config: GatewayConfig) {
     });
   });
 
+  // --- RAG ---
+
+  app.post("/api/rag/collections", async (request, reply) => {
+    try {
+      const res = await bridge.proxyPost("/api/rag/collections", request.body);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.get("/api/rag/collections", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/rag/collections");
+      return await res.json();
+    } catch {
+      return { collections: [] };
+    }
+  });
+
+  app.get("/api/rag/collections/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const res = await bridge.proxyGet(`/api/rag/collections/${id}`);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.delete("/api/rag/collections/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const res = await bridge.proxyDelete(`/api/rag/collections/${id}`);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.post("/api/rag/collections/:id/documents", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const data = await request.file();
+      if (!data) {
+        reply.code(400);
+        return { error: "No file uploaded" };
+      }
+      const buffer = await data.toBuffer();
+      const file = new File([buffer], data.filename, { type: data.mimetype });
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(
+        `${bridge.getBaseUrl()}/api/rag/collections/${id}/documents`,
+        { method: "POST", body: formData }
+      );
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.get("/api/rag/collections/:id/documents", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const res = await bridge.proxyGet(`/api/rag/collections/${id}/documents`);
+      return await res.json();
+    } catch {
+      return { documents: [] };
+    }
+  });
+
+  app.delete("/api/rag/documents/:docId", async (request, reply) => {
+    const { docId } = request.params as { docId: string };
+    try {
+      const res = await bridge.proxyDelete(`/api/rag/documents/${docId}`);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.post("/api/rag/query", async (request, reply) => {
+    try {
+      const res = await bridge.proxyPost("/api/rag/query", request.body);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
   // --- Tools Enhanced ---
 
   app.post("/api/tools/dynamic", async (request, reply) => {

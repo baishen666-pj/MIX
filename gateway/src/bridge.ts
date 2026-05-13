@@ -16,6 +16,10 @@ export class EngineBridge {
     this.wsUrl = `ws://${config.engineHost}:${config.enginePort}`;
   }
 
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
   async health(): Promise<{ status: string; version: string }> {
     const res = await fetch(`${this.baseUrl}/api/health`);
     return res.json() as Promise<{ status: string; version: string }>;

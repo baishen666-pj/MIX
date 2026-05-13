@@ -1,4 +1,4 @@
-export type Tab = "chat" | "skills" | "memory" | "dashboard" | "agents" | "tools" | "settings";
+export type Tab = "chat" | "skills" | "memory" | "dashboard" | "agents" | "tools" | "knowledge" | "settings";
 
 export interface Message {
   id: string;
