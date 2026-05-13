@@ -1,6 +1,5 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 interface TelegramConfig {
   botToken: string;
@@ -17,20 +16,16 @@ interface TelegramUpdate {
   };
 }
 
-export class TelegramChannel implements ChannelAdapter {
+export class TelegramChannel extends BaseChannel {
   readonly name = "telegram" as const;
-  private handlers: MessageHandler[] = [];
   private config: TelegramConfig;
   private polling = false;
   private lastUpdateId = 0;
   private abortController: AbortController | null = null;
 
   constructor(config: TelegramConfig) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
@@ -43,7 +38,7 @@ export class TelegramChannel implements ChannelAdapter {
   async stop(): Promise<void> {
     this.polling = false;
     this.abortController?.abort();
-    this.handlers = [];
+    await super.stop();
   }
 
   private async poll(): Promise<void> {
@@ -54,11 +49,7 @@ export class TelegramChannel implements ChannelAdapter {
           this.lastUpdateId = update.update_id + 1;
           if (update.message?.text && update.message.from) {
             const msg = this.toChannelMessage(update);
-            if (msg) {
-              for (const handler of this.handlers) {
-                handler(msg);
-              }
-            }
+            if (msg) this.dispatch(msg);
           }
         }
       } catch {

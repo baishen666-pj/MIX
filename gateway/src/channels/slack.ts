@@ -1,6 +1,5 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 interface SlackConfig {
   botToken: string;
@@ -8,19 +7,15 @@ interface SlackConfig {
   allowedChannels?: string[];
 }
 
-export class SlackChannel implements ChannelAdapter {
+export class SlackChannel extends BaseChannel {
   readonly name = "slack" as const;
-  private handlers: MessageHandler[] = [];
   private config: SlackConfig;
   private ws: WebSocket | null = null;
   private lastTimestamp = 0;
 
   constructor(config: SlackConfig) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
@@ -31,7 +26,7 @@ export class SlackChannel implements ChannelAdapter {
   async stop(): Promise<void> {
     this.ws?.close();
     this.ws = null;
-    this.handlers = [];
+    await super.stop();
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -85,9 +80,7 @@ export class SlackChannel implements ChannelAdapter {
                 },
                 timestamp: new Date(parseFloat(msg.ts) * 1000).toISOString(),
               };
-              for (const handler of this.handlers) {
-                handler(channelMsg);
-              }
+              this.dispatch(channelMsg);
             }
           }
         }

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from engine.memory.store import MemoryStore
 
@@ -86,7 +87,9 @@ async def test_export_session_markdown(tmp_path: Path) -> None:
     store = MemoryStore(db, use_embeddings=False)
     await store.connect()
 
-    await store.save_session("sess-1", {"messages": [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi there"}]})
+    await store.save_session(
+        "sess-1", {"messages": [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi there"}]}
+    )
     await store.flush()
 
     exported = await store.export_session("sess-1", format="markdown")

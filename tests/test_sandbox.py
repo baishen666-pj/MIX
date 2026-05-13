@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from engine.sandbox.local import LocalBackend
+import pytest
+
 from engine.sandbox.docker import DockerBackend
+from engine.sandbox.local import LocalBackend
 
 
 class TestLocalBackend:
-
     def test_name(self) -> None:
         backend = LocalBackend()
         assert backend.name == "local"
@@ -72,7 +72,6 @@ class TestLocalBackend:
 
 
 class TestDockerBackend:
-
     def test_name(self) -> None:
         backend = DockerBackend()
         assert backend.name == "docker"

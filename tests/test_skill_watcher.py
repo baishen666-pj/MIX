@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from engine.skills.watcher import SkillWatcher
+import pytest
+
 from engine.skills.registry import SkillRegistry
+from engine.skills.watcher import SkillWatcher
 
 
 class TestSkillWatcher:
-
     def test_init(self, tmp_path: Path) -> None:
         registry = MagicMock(spec=SkillRegistry)
         watcher = SkillWatcher(tmp_path, registry)

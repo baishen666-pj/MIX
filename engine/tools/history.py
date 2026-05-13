@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import logging
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from engine.tools.types import ToolResult
-
-import logging
 
 log = logging.getLogger("mix.tool_history")
 
@@ -61,7 +60,7 @@ class ToolHistory:
         )
         self._records.append(record)
         if len(self._records) > self._max_records:
-            self._records = self._records[-self._max_records:]
+            self._records = self._records[-self._max_records :]
 
     async def query(
         self,
@@ -75,7 +74,7 @@ class ToolHistory:
             results = [r for r in results if r.tool_name == tool_name]
         if session_id:
             results = [r for r in results if r.session_id == session_id]
-        return list(reversed(results))[offset:offset + limit]
+        return list(reversed(results))[offset : offset + limit]
 
     async def get_stats(self) -> dict[str, Any]:
         if not self._records:

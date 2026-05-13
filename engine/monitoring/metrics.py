@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import defaultdict, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -59,9 +59,7 @@ class MetricsCollector:
         self._active_sessions: int = 0
         self._memory_entries: int = 0
 
-    async def record_request(
-        self, endpoint: str, duration_ms: float, status_code: int
-    ) -> None:
+    async def record_request(self, endpoint: str, duration_ms: float, status_code: int) -> None:
         """Record a completed request."""
         now = time.monotonic()
         record = RequestRecord(
@@ -77,9 +75,7 @@ class MetricsCollector:
             self._requests_by_endpoint[endpoint] += 1
             self._requests_by_status[status_code] += 1
 
-    async def record_llm_call(
-        self, provider: str, duration_ms: float, tokens: int
-    ) -> None:
+    async def record_llm_call(self, provider: str, duration_ms: float, tokens: int) -> None:
         """Record an LLM API call."""
         now = time.monotonic()
         record = LlmCallRecord(
@@ -110,29 +106,15 @@ class MetricsCollector:
 
             # Filter recent request durations for the time window
             window_cutoff = now - self._window_seconds
-            recent_durations = [
-                r.duration_ms
-                for r in self._request_records
-                if r.timestamp >= window_cutoff
-            ]
+            recent_durations = [r.duration_ms for r in self._request_records if r.timestamp >= window_cutoff]
 
-            avg_duration = (
-                sum(recent_durations) / len(recent_durations)
-                if recent_durations
-                else 0.0
-            )
+            avg_duration = sum(recent_durations) / len(recent_durations) if recent_durations else 0.0
             p95_duration = _percentile(recent_durations, 95) if recent_durations else 0.0
 
             # LLM recent window stats
-            recent_llm = [
-                r for r in self._llm_records if r.timestamp >= window_cutoff
-            ]
+            recent_llm = [r for r in self._llm_records if r.timestamp >= window_cutoff]
             recent_llm_durations = [r.duration_ms for r in recent_llm]
-            avg_llm_latency = (
-                sum(recent_llm_durations) / len(recent_llm_durations)
-                if recent_llm_durations
-                else 0.0
-            )
+            avg_llm_latency = sum(recent_llm_durations) / len(recent_llm_durations) if recent_llm_durations else 0.0
 
             return {
                 "uptime_seconds": round(uptime, 2),
@@ -184,12 +166,12 @@ class MetricsCollector:
 
         lines.append("# HELP mix_uptime_seconds Total uptime in seconds")
         lines.append("# TYPE mix_uptime_seconds gauge")
-        lines.append(f'mix_uptime_seconds {metrics["uptime_seconds"]}')
+        lines.append(f"mix_uptime_seconds {metrics['uptime_seconds']}")
 
         lines.append("")
         lines.append("# HELP mix_requests_total Total HTTP requests")
         lines.append("# TYPE mix_requests_total counter")
-        lines.append(f'mix_requests_total {metrics["requests"]["total"]}')
+        lines.append(f"mix_requests_total {metrics['requests']['total']}")
 
         lines.append("")
         lines.append("# HELP mix_request_duration_ms Request duration in milliseconds")
@@ -207,17 +189,17 @@ class MetricsCollector:
         lines.append("")
         lines.append("# HELP mix_llm_calls_total Total LLM API calls")
         lines.append("# TYPE mix_llm_calls_total counter")
-        lines.append(f'mix_llm_calls_total {metrics["llm"]["total_calls"]}')
+        lines.append(f"mix_llm_calls_total {metrics['llm']['total_calls']}")
 
         lines.append("")
         lines.append("# HELP mix_llm_tokens_total Total LLM tokens used")
         lines.append("# TYPE mix_llm_tokens_total counter")
-        lines.append(f'mix_llm_tokens_total {metrics["llm"]["total_tokens"]}')
+        lines.append(f"mix_llm_tokens_total {metrics['llm']['total_tokens']}")
 
         lines.append("")
         lines.append("# HELP mix_llm_latency_ms LLM call latency in milliseconds")
         lines.append("# TYPE mix_llm_latency_ms gauge")
-        lines.append(f'mix_llm_latency_ms {metrics["llm"]["avg_latency_ms"]}')
+        lines.append(f"mix_llm_latency_ms {metrics['llm']['avg_latency_ms']}")
 
         for provider, count in metrics["llm"]["by_provider"].items():
             lines.append(f'mix_llm_calls_by_provider{{provider="{provider}"}} {count}')
@@ -225,12 +207,12 @@ class MetricsCollector:
         lines.append("")
         lines.append("# HELP mix_active_sessions Number of active sessions")
         lines.append("# TYPE mix_active_sessions gauge")
-        lines.append(f'mix_active_sessions {metrics["sessions"]["active_count"]}')
+        lines.append(f"mix_active_sessions {metrics['sessions']['active_count']}")
 
         lines.append("")
         lines.append("# HELP mix_memory_entries Total memory entries")
         lines.append("# TYPE mix_memory_entries gauge")
-        lines.append(f'mix_memory_entries {metrics["memory"]["entry_count"]}')
+        lines.append(f"mix_memory_entries {metrics['memory']['entry_count']}")
 
         return "\n".join(lines) + "\n"
 

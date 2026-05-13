@@ -1,8 +1,6 @@
 import pytest
-from pathlib import Path
 
 from engine.tools.edit import file_edit, file_edit_lines
-from engine.tools.types import ToolResult
 
 
 @pytest.fixture

@@ -302,7 +302,7 @@ export function RAGView() {
                 <div>
                   <h4 style={{ margin: "16px 0 8px", color: "#aaa" }}>Sources</h4>
                   {queryResult.citations.map((cit, i) => (
-                    <div key={i} style={{ ...s.card, marginBottom: 8, padding: 10 }}>
+                    <div key={`${cit.document_id}-${cit.chunk_index}`} style={{ ...s.card, marginBottom: 8, padding: 10 }}>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <strong style={{ color: "#4fc3f7" }}>[{i + 1}] {cit.document_name}</strong>
                         <span style={{ color: "#888", fontSize: 12 }}>

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
-import tempfile
 from pathlib import Path
+
+import pytest
 
 from engine.memory.document_parser import extract_text
 
 
 class TestExtractText:
-
     def test_extract_text_file(self, tmp_path: Path) -> None:
         f = tmp_path / "sample.txt"
         f.write_text("Hello, world!", encoding="utf-8")

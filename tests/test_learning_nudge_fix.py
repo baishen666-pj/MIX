@@ -1,10 +1,11 @@
-import pytest
 from pathlib import Path
 
+import pytest
+
+from engine.learning.loop import LearningLoop
 from engine.memory.store import MemoryStore
 from engine.memory.types import MemoryEntry, MemoryType
 from engine.skills.registry import SkillRegistry
-from engine.learning.loop import LearningLoop
 
 
 @pytest.mark.asyncio

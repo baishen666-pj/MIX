@@ -1,8 +1,6 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from engine.middleware.rate_limit import RateLimiter, RateLimitMiddleware
-
 
 # --- Unit: RateLimiter core logic ---
 
@@ -52,11 +50,11 @@ def test_remaining_decrements() -> None:
 
 @pytest.mark.asyncio
 async def test_middleware_passes_within_limit() -> None:
-    from starlette.testclient import TestClient
     from starlette.applications import Starlette
     from starlette.middleware import Middleware
     from starlette.responses import PlainTextResponse
     from starlette.routing import Route
+    from starlette.testclient import TestClient
 
     async def handler(request):
         return PlainTextResponse("ok")
@@ -75,11 +73,11 @@ async def test_middleware_passes_within_limit() -> None:
 
 @pytest.mark.asyncio
 async def test_middleware_returns_429_over_limit() -> None:
-    from starlette.testclient import TestClient
     from starlette.applications import Starlette
     from starlette.middleware import Middleware
     from starlette.responses import PlainTextResponse
     from starlette.routing import Route
+    from starlette.testclient import TestClient
 
     async def handler(request):
         return PlainTextResponse("ok")

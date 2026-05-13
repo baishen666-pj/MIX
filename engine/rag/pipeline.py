@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import logging
+import time
+from dataclasses import dataclass
 from typing import Any
 
 from engine.memory.store import MemoryStore
-from engine.rag.collections import CollectionManager
 from engine.rag.chunking import Chunker, ChunkingStrategy
+from engine.rag.citations import CitationTracker
+from engine.rag.collections import CollectionManager
 from engine.rag.reranker import SimpleReranker
-from engine.rag.citations import CitationTracker, CitedResponse
-
-import logging
-import time
-import uuid
 
 log = logging.getLogger("mix.rag_pipeline")
 
@@ -80,7 +78,7 @@ class RAGPipeline:
             reranked_count = len(chunks_with_scores)
 
         # Build context
-        context_parts = [f"[{i+1}] {c[0]}" for i, c in enumerate(chunks_with_scores)]
+        context_parts = [f"[{i + 1}] {c[0]}" for i, c in enumerate(chunks_with_scores)]
         context_text = "\n\n".join(context_parts) if context_parts else "No relevant documents found."
 
         # Generate answer
@@ -144,6 +142,7 @@ class RAGPipeline:
             metadata=metadata,
         )
         from engine.memory.types import MemoryEntry, MemoryType
+
         for chunk in chunks:
             chunk_meta = dict(chunk.metadata)
             chunk_meta["document_id"] = doc.id

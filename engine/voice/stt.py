@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import asyncio
-import tempfile
 from pathlib import Path
-from typing import AsyncIterator
 
 
 async def transcribe(
@@ -14,12 +11,14 @@ async def transcribe(
     api_key: str | None = None,
 ) -> str:
     import os
+
     from openai import AsyncOpenAI
 
     client = AsyncOpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
 
     if audio_bytes is not None:
         import io
+
         file_obj = io.BytesIO(audio_bytes)
         file_obj.name = "audio.wav"
         kwargs: dict = {"model": model, "file": file_obj}

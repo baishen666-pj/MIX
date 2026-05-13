@@ -1,22 +1,23 @@
-import pytest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from engine.agent.router import AgentRouter
+from engine.config import MixConfig, ProviderConfig
+from engine.mcp.client import MCPClient, MCPServerConfig, MCPTool
+from engine.memory.store import MemoryStore
+from engine.sandbox.local import LocalBackend
+from engine.sandbox.types import SandboxManager
 from engine.tools.registry import ToolRegistry
 from engine.tools.types import ToolResult
-from engine.agent.router import AgentRouter, AgentInstance
-from engine.sandbox.types import SandboxManager
-from engine.sandbox.local import LocalBackend
-from engine.mcp.client import MCPClient, MCPServerConfig, MCPTool
-from engine.config import MixConfig, ProviderConfig
-from engine.memory.store import MemoryStore
-
 
 # --- Tool Registry with Sandbox ---
+
 
 @pytest.mark.asyncio
 async def test_registry_with_sandbox(tmp_path: Path) -> None:
     from engine.sandbox.local import LocalBackend
+
     registry = ToolRegistry()
     sandbox = LocalBackend()
     registry.set_sandbox(sandbox)
@@ -61,6 +62,7 @@ async def test_registry_mcp_tool() -> None:
 
 
 # --- Agent Router ---
+
 
 @pytest.fixture
 def config() -> MixConfig:
@@ -129,6 +131,7 @@ async def test_router_list_agents(config: MixConfig, router_memory: MemoryStore)
 
 # --- MCP Client ---
 
+
 def test_mcp_register_server() -> None:
     client = MCPClient()
     config = MCPServerConfig(name="weather", url="http://localhost:3001")
@@ -160,6 +163,7 @@ def test_mcp_tool_definitions() -> None:
 
 
 # --- Sandbox Manager ---
+
 
 def test_sandbox_manager() -> None:
     manager = SandboxManager(default_backend="local")

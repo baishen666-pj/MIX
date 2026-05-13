@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
-from engine.agent.router import AgentRouter, AgentRoute, AgentInstance
-from engine.config import MixConfig, ProviderConfig, EngineConfig, MemoryConfig
+from engine.agent.router import AgentRouter
+from engine.config import EngineConfig, MemoryConfig, MixConfig, ProviderConfig
 
 
 def make_config(model: str = "gpt-4o") -> MixConfig:
@@ -17,7 +15,6 @@ def make_config(model: str = "gpt-4o") -> MixConfig:
 
 
 class TestAgentRouter:
-
     def test_default_agent_created(self) -> None:
         config = make_config()
         router = AgentRouter(config, memory=None)

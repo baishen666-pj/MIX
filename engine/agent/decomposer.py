@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -64,11 +63,7 @@ class TaskDecomposer:
             {"role": "system", "content": DECOMPOSITION_SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": (
-                    f"Task: {task}\n\n"
-                    f"Maximum subtasks: {max_subtasks}\n\n"
-                    "Return the JSON array now."
-                ),
+                "content": (f"Task: {task}\n\nMaximum subtasks: {max_subtasks}\n\nReturn the JSON array now."),
             },
         ]
 
@@ -90,21 +85,25 @@ class TaskDecomposer:
 
         subtasks: list[Subtask] = []
         for item in parsed[:max_subtasks]:
-            subtasks.append(Subtask(
-                id=item.get("id", f"sub{len(subtasks) + 1}"),
-                description=item.get("description", ""),
-                agent_hint=item.get("agent_hint", "general"),
-                dependencies=list(item.get("dependencies", [])),
-            ))
+            subtasks.append(
+                Subtask(
+                    id=item.get("id", f"sub{len(subtasks) + 1}"),
+                    description=item.get("description", ""),
+                    agent_hint=item.get("agent_hint", "general"),
+                    dependencies=list(item.get("dependencies", [])),
+                )
+            )
 
         return subtasks
 
     @staticmethod
     def _fallback(task: str) -> list[Subtask]:
         """Create a single subtask wrapping the entire task."""
-        return [Subtask(
-            id="sub1",
-            description=task,
-            agent_hint="general",
-            dependencies=[],
-        )]
+        return [
+            Subtask(
+                id="sub1",
+                description=task,
+                agent_hint="general",
+                dependencies=[],
+            )
+        ]

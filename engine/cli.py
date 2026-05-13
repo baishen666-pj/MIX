@@ -7,11 +7,12 @@ import json
 import sys
 from pathlib import Path
 
-from engine.config import MixConfig, DEFAULT_CONFIG_PATH
+from engine.config import DEFAULT_CONFIG_PATH, MixConfig
 
 
 def cmd_start(args: argparse.Namespace) -> None:
     import uvicorn
+
     from engine.main import create_app
 
     config = MixConfig.load()
@@ -54,6 +55,7 @@ def cmd_config(args: argparse.Namespace) -> None:
 
 def cmd_skills(args: argparse.Namespace) -> None:
     from engine.skills.registry import SkillRegistry
+
     registry = SkillRegistry(skills_dir=Path("skills"))
     count = registry.load_all()
     skills = registry.list_skills()
@@ -78,15 +80,16 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         issues.append(f"Memory directory does not exist: {config.memory.db_path.parent}")
 
     try:
-        import fastapi
-        import uvicorn
-        import openai
+        import fastapi  # noqa: F401
+        import openai  # noqa: F401
+        import uvicorn  # noqa: F401
     except ImportError as e:
         issues.append(f"Missing dependency: {e}")
 
     try:
-        import httpx
         import asyncio
+
+        import httpx
 
         async def check():
             async with httpx.AsyncClient() as client:

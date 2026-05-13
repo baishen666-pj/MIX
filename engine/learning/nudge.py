@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Awaitable
+from typing import Awaitable, Callable
 
 log = logging.getLogger("mix.cron")
 
@@ -107,8 +107,12 @@ class CronScheduler:
             data = {}
             for jid, j in self._jobs.items():
                 data[jid] = {
-                    "name": j.name, "cron": j.cron, "message": j.message,
-                    "channel": j.channel, "enabled": j.enabled, "last_run": j.last_run,
+                    "name": j.name,
+                    "cron": j.cron,
+                    "message": j.message,
+                    "channel": j.channel,
+                    "enabled": j.enabled,
+                    "last_run": j.last_run,
                 }
             self._persist_path.write_text(json.dumps(data, indent=2))
         except Exception:
@@ -121,9 +125,13 @@ class CronScheduler:
             data = json.loads(self._persist_path.read_text())
             for jid, jd in data.items():
                 self._jobs[jid] = CronJob(
-                    id=jid, name=jd["name"], cron=jd["cron"],
-                    message=jd["message"], channel=jd.get("channel", "webchat"),
-                    enabled=jd.get("enabled", True), last_run=jd.get("last_run", ""),
+                    id=jid,
+                    name=jd["name"],
+                    cron=jd["cron"],
+                    message=jd["message"],
+                    channel=jd.get("channel", "webchat"),
+                    enabled=jd.get("enabled", True),
+                    last_run=jd.get("last_run", ""),
                 )
         except Exception:
             log.exception("Failed to load cron jobs")

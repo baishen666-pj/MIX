@@ -2,24 +2,26 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from engine.mcp.bridge import MCPToolBridge, json_dump
 from engine.mcp.client import MCPClient
 
 
 class TestMCPToolBridge:
-
     @pytest.mark.asyncio
     async def test_execute_success_with_text_content(self) -> None:
         client = MCPClient()
-        client.call_tool = AsyncMock(return_value={
-            "content": [
-                {"type": "text", "text": "Hello"},
-                {"type": "text", "text": "World"},
-            ]
-        })
+        client.call_tool = AsyncMock(
+            return_value={
+                "content": [
+                    {"type": "text", "text": "Hello"},
+                    {"type": "text", "text": "World"},
+                ]
+            }
+        )
 
         bridge = MCPToolBridge(client)
         result = await bridge.execute("mcp_svc_tool", query="test")
@@ -63,12 +65,14 @@ class TestMCPToolBridge:
     @pytest.mark.asyncio
     async def test_execute_mixed_content_types(self) -> None:
         client = MCPClient()
-        client.call_tool = AsyncMock(return_value={
-            "content": [
-                {"type": "image", "data": "base64..."},
-                {"type": "text", "text": "only text matters"},
-            ]
-        })
+        client.call_tool = AsyncMock(
+            return_value={
+                "content": [
+                    {"type": "image", "data": "base64..."},
+                    {"type": "text", "text": "only text matters"},
+                ]
+            }
+        )
 
         bridge = MCPToolBridge(client)
         result = await bridge.execute("mcp_svc_tool")

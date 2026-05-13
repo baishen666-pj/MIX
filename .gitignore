@@ -18,3 +18,4 @@ Thumbs.db
 
 .claude/
 web/test-results/
+.coverage

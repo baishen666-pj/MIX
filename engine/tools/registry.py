@@ -1,22 +1,24 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, Awaitable, Callable
 
-from engine.tools.types import ToolResult
 from engine.tools import bash as bash_tool
+from engine.tools import calculator as calc_tool
+from engine.tools import code_execution as code_exec_tool
 from engine.tools import edit as edit_tool
 from engine.tools import file as file_tool
-from engine.tools import grep as grep_tool
 from engine.tools import glob as glob_mod
+from engine.tools import grep as grep_tool
+from engine.tools import image_gen as image_gen_tool
+from engine.tools import scraper as scraper_tool
 from engine.tools import search as search_tool
 from engine.tools import webfetch as webfetch_tool
-from engine.tools import calculator as calc_tool
-from engine.tools import scraper as scraper_tool
-from engine.tools import code_execution as code_exec_tool
-from engine.tools import image_gen as image_gen_tool
 from engine.tools.sandbox import FileSandbox
-
+from engine.tools.approval import ApprovalManager
+from engine.tools.dynamic import DynamicToolRegistry
+from engine.tools.history import ToolHistory
+from engine.tools.types import ToolResult
 
 DANGER_LEVELS: dict[str, str] = {
     "bash": "dangerous",
@@ -37,8 +39,8 @@ DANGER_LEVELS: dict[str, str] = {
 
 
 class ToolRegistry:
-    def __init__(self, sandbox: Any | None = None, file_sandbox: FileSandbox | None = None) -> None:
-        self._tools: dict[str, Any] = {
+    def __init__(self, sandbox: object | None = None, file_sandbox: FileSandbox | None = None) -> None:
+        self._tools: dict[str, Callable[..., Awaitable[ToolResult]]] = {
             "bash": bash_tool.execute,
             "file_read": file_tool.file_read,
             "file_write": file_tool.file_write,
@@ -56,27 +58,27 @@ class ToolRegistry:
         }
         self._sandbox = sandbox
         self._file_sandbox = file_sandbox
-        self._mcp_tools: dict[str, Any] = {}
-        self._approval: Any = None
-        self._history: Any = None
-        self._dynamic: Any = None
+        self._mcp_tools: dict[str, Callable[..., Awaitable[ToolResult]]] = {}
+        self._approval: ApprovalManager | None = None
+        self._history: ToolHistory | None = None
+        self._dynamic: DynamicToolRegistry | None = None
 
-    def set_approval_manager(self, manager: Any) -> None:
+    def set_approval_manager(self, manager: ApprovalManager) -> None:
         self._approval = manager
 
-    def set_history(self, history: Any) -> None:
+    def set_history(self, history: ToolHistory) -> None:
         self._history = history
 
-    def set_dynamic_registry(self, registry: Any) -> None:
+    def set_dynamic_registry(self, registry: DynamicToolRegistry) -> None:
         self._dynamic = registry
 
-    def set_sandbox(self, sandbox: Any) -> None:
+    def set_sandbox(self, sandbox: object) -> None:
         self._sandbox = sandbox
 
-    def register_tool(self, name: str, handler: Any) -> None:
+    def register_tool(self, name: str, handler: Callable[..., Awaitable[ToolResult]]) -> None:
         self._tools[name] = handler
 
-    def register_mcp_tool(self, name: str, handler: Any) -> None:
+    def register_mcp_tool(self, name: str, handler: Callable[..., Awaitable[ToolResult]]) -> None:
         self._mcp_tools[name] = handler
 
     def unregister_tool(self, name: str) -> bool:
@@ -166,18 +168,21 @@ class ToolRegistry:
             tools.extend(self._dynamic.list_dynamic_tools_names())
         return tools
 
-    def get_definitions(self) -> list[dict]:
+    def get_definitions(self) -> list[dict[str, Any]]:
         from engine.tools.types import TOOL_DEFINITIONS
+
         definitions = list(TOOL_DEFINITIONS)
         for name in self._mcp_tools:
-            definitions.append({
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "description": f"MCP tool: {name}",
-                    "parameters": {"type": "object", "properties": {}},
-                },
-            })
+            definitions.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": f"MCP tool: {name}",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                }
+            )
         if self._dynamic:
             definitions.extend(self._dynamic.get_definitions())
         return definitions

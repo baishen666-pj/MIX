@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from engine.tools.registry import ToolRegistry
 from engine.tools.types import ToolResult
-
-import logging
 
 log = logging.getLogger("mix.tool_chain")
 
@@ -46,10 +45,7 @@ class ToolChainExecutor:
             {
                 "name": c.name,
                 "description": c.description,
-                "steps": [
-                    {"tool": s.tool_name, "fixed_args": s.fixed_args}
-                    for s in c.steps
-                ],
+                "steps": [{"tool": s.tool_name, "fixed_args": s.fixed_args} for s in c.steps],
             }
             for c in self._chains.values()
         ]

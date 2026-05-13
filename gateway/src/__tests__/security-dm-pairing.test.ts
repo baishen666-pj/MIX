@@ -53,6 +53,6 @@ describe("DmSecurityFilter", () => {
     const msg = makeMessage({ metadata: { isDm: true } });
     const result = filter.filter(msg);
     expect(result.allowed).toBe(false);
-    expect(result.response).toContain("pair");
+    expect(result.response).toBe("Access denied.");
   });
 });

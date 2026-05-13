@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
-
-import logging
 
 log = logging.getLogger("mix.reranker")
 
@@ -34,8 +33,7 @@ class SimpleReranker:
 
         scored.sort(key=lambda x: x[2], reverse=True)
         return [
-            RerankResult(index=s[0], content=s[1], relevance_score=s[2], original_rank=s[0])
-            for s in scored[:top_k]
+            RerankResult(index=s[0], content=s[1], relevance_score=s[2], original_rank=s[0]) for s in scored[:top_k]
         ]
 
 
@@ -57,6 +55,7 @@ class LLMReranker:
         )
         try:
             import json
+
             result = await self._provider.complete(
                 messages=[{"role": "user", "content": prompt}],
             )

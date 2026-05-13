@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import base64
 import os
-import uuid
 
 import httpx
 
@@ -42,10 +40,12 @@ async def execute(
 
         images = []
         for img in data.get("data", []):
-            images.append({
-                "url": img.get("url", ""),
-                "revised_prompt": img.get("revised_prompt", ""),
-            })
+            images.append(
+                {
+                    "url": img.get("url", ""),
+                    "revised_prompt": img.get("revised_prompt", ""),
+                }
+            )
 
         return ToolResult(
             output=f"Generated {len(images)} image(s)",

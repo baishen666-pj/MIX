@@ -1,6 +1,7 @@
 import pytest
+
+from engine.config import EngineConfig, MixConfig, SecurityConfig
 from engine.memory.types import MemoryType
-from engine.config import MixConfig, SecurityConfig, EngineConfig, MemoryConfig
 
 
 @pytest.mark.parametrize("mem_type", ["fact", "preference", "context", "skill_result", "user_model"])

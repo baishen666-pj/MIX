@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+
 import pytest
 
 from engine.agent.bus import AgentBus
 from engine.agent.collaboration import (
     CollaborationEngine,
     CollaborationPattern,
-    CollaborationPlan,
     CollaborationStep,
 )
 from engine.agent.router import AgentRouter

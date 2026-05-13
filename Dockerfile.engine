@@ -2,12 +2,21 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Create user before copying code for better layer caching
+RUN useradd --create-home mixuser
+
+# Copy dependency spec first — this layer caches unless pyproject.toml changes
 COPY pyproject.toml .
+
+# Install core dependencies only (cached unless pyproject.toml changes)
+RUN pip install --no-cache-dir .
+
+# Install RAG extras in a separate layer (large ML libs, cached independently)
+RUN pip install --no-cache-dir ".[rag]"
+
+# Copy application code last — changes most frequently
 COPY engine/ engine/
 COPY skills/ skills/
-
-RUN pip install --no-cache-dir -e ".[dev]" \
-    && useradd --create-home mixuser
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:18700/api/health')" || exit 1

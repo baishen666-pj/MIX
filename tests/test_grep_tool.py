@@ -1,12 +1,13 @@
 import pytest
-from pathlib import Path
 
 from engine.tools.grep import content_search
 
 
 @pytest.fixture
 def search_tree(tmp_path):
-    (tmp_path / "app.py").write_text("def hello():\n    return 'world'\n\ndef goodbye():\n    return 'bye'\n", encoding="utf-8")
+    (tmp_path / "app.py").write_text(
+        "def hello():\n    return 'world'\n\ndef goodbye():\n    return 'bye'\n", encoding="utf-8"
+    )
     (tmp_path / "utils.py").write_text("HELLO = 'hello'\nWORLD = 'world'\n", encoding="utf-8")
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "deep.py").write_text("# deep file\nhello_from_deep = True\n", encoding="utf-8")

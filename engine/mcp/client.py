@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ipaddress
-import json
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
@@ -129,24 +128,20 @@ class MCPClient:
     def get_tool_definitions(self) -> list[dict]:
         definitions = []
         for tool in self._tools.values():
-            definitions.append({
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": f"[MCP:{tool.server}] {tool.description}",
-                    "parameters": tool.parameters,
-                },
-            })
+            definitions.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": f"[MCP:{tool.server}] {tool.description}",
+                        "parameters": tool.parameters,
+                    },
+                }
+            )
         return definitions
 
     def list_servers(self) -> list[dict]:
-        return [
-            {"name": s.name, "url": s.url, "enabled": s.enabled}
-            for s in self._servers.values()
-        ]
+        return [{"name": s.name, "url": s.url, "enabled": s.enabled} for s in self._servers.values()]
 
     def list_tools(self) -> list[dict]:
-        return [
-            {"name": t.name, "description": t.description, "server": t.server}
-            for t in self._tools.values()
-        ]
+        return [{"name": t.name, "description": t.description, "server": t.server} for t in self._tools.values()]

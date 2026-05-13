@@ -94,6 +94,7 @@ class ModelRouteResponse(BaseModel):
 
 # --- Multi-Agent Collaboration ---
 
+
 class AgentCreateRequest(BaseModel):
     name: str
     role: str = "general"
@@ -138,6 +139,7 @@ class CollaborationStatusResponse(BaseModel):
 
 # --- Tool Enhancement ---
 
+
 class DynamicToolRegisterRequest(BaseModel):
     name: str
     description: str
@@ -162,6 +164,7 @@ class ApprovalActionRequest(BaseModel):
 
 
 # --- RAG ---
+
 
 class CollectionCreateRequest(BaseModel):
     name: str

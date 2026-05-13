@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import tempfile
 from pathlib import Path
 from typing import AsyncIterator
@@ -14,6 +13,7 @@ async def synthesize(
     api_key: str | None = None,
 ) -> str:
     import os
+
     from openai import AsyncOpenAI
 
     client = AsyncOpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
@@ -42,6 +42,7 @@ async def synthesize_stream(
     chunk_size: int = 4096,
 ) -> AsyncIterator[bytes]:
     import os
+
     from openai import AsyncOpenAI
 
     client = AsyncOpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))

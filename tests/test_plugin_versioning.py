@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
 
-from engine.skills.registry import SkillRegistry, SkillManifest
+from engine.skills.registry import SkillManifest, SkillRegistry
 
 
 def _make_skill(path: Path, name: str = "test-skill", version: str = "1.0.0") -> Path:

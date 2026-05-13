@@ -4,19 +4,20 @@ from __future__ import annotations
 
 import asyncio
 import json
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from engine.agent.bus import AgentBus, BusMessage
-from engine.agent.decomposer import TaskDecomposer, Subtask
-from engine.agent.orchestrator import TaskOrchestrator, SubtaskResult, PlanStatus
+from engine.agent.decomposer import Subtask, TaskDecomposer
 from engine.agent.loop import AgentLoop
-from engine.config import MixConfig, ProviderConfig, EngineConfig, MemoryConfig
-
+from engine.agent.orchestrator import TaskOrchestrator
+from engine.config import EngineConfig, MemoryConfig, MixConfig, ProviderConfig
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_config() -> MixConfig:
     return MixConfig(
@@ -48,8 +49,8 @@ class MockProvider:
 # AgentBus tests
 # ---------------------------------------------------------------------------
 
-class TestAgentBus:
 
+class TestAgentBus:
     @pytest.mark.asyncio
     async def test_publish_subscribe_exact_channel(self) -> None:
         bus = AgentBus()
@@ -162,8 +163,8 @@ class TestAgentBus:
 # TaskDecomposer tests
 # ---------------------------------------------------------------------------
 
-class TestTaskDecomposer:
 
+class TestTaskDecomposer:
     @pytest.mark.asyncio
     async def test_fallback_without_provider(self) -> None:
         decomposer = TaskDecomposer(provider=None)
@@ -190,11 +191,13 @@ class TestTaskDecomposer:
     @pytest.mark.asyncio
     async def test_llm_decomposition(self) -> None:
         llm_response = {
-            "content": json.dumps([
-                {"id": "sub1", "description": "Research topic", "agent_hint": "researcher", "dependencies": []},
-                {"id": "sub2", "description": "Write code", "agent_hint": "coder", "dependencies": ["sub1"]},
-                {"id": "sub3", "description": "Test code", "agent_hint": "tester", "dependencies": ["sub2"]},
-            ]),
+            "content": json.dumps(
+                [
+                    {"id": "sub1", "description": "Research topic", "agent_hint": "researcher", "dependencies": []},
+                    {"id": "sub2", "description": "Write code", "agent_hint": "coder", "dependencies": ["sub1"]},
+                    {"id": "sub3", "description": "Test code", "agent_hint": "tester", "dependencies": ["sub2"]},
+                ]
+            ),
             "tool_calls": None,
         }
         provider = MockProvider([llm_response])
@@ -235,9 +238,13 @@ class TestTaskDecomposer:
     @pytest.mark.asyncio
     async def test_llm_with_markdown_fences(self) -> None:
         llm_response = {
-            "content": "```json\n" + json.dumps([
-                {"id": "sub1", "description": "Do it", "agent_hint": "general", "dependencies": []},
-            ]) + "\n```",
+            "content": "```json\n"
+            + json.dumps(
+                [
+                    {"id": "sub1", "description": "Do it", "agent_hint": "general", "dependencies": []},
+                ]
+            )
+            + "\n```",
             "tool_calls": None,
         }
         provider = MockProvider([llm_response])
@@ -252,17 +259,19 @@ class TestTaskDecomposer:
 # TaskOrchestrator tests
 # ---------------------------------------------------------------------------
 
-class TestTaskOrchestrator:
 
+class TestTaskOrchestrator:
     @pytest.mark.asyncio
     async def test_simple_sequential_execution(self) -> None:
         orchestrator = TaskOrchestrator()
         config = make_config()
         loop = AgentLoop(config)
-        loop.provider = MockProvider([
-            {"content": "Step 1 done", "tool_calls": None},
-            {"content": "Step 2 done", "tool_calls": None},
-        ])
+        loop.provider = MockProvider(
+            [
+                {"content": "Step 1 done", "tool_calls": None},
+                {"content": "Step 2 done", "tool_calls": None},
+            ]
+        )
 
         subtasks = [
             Subtask(id="s1", description="First step", agent_hint="general", dependencies=[]),
@@ -282,11 +291,13 @@ class TestTaskOrchestrator:
         orchestrator = TaskOrchestrator()
         config = make_config()
         loop = AgentLoop(config)
-        loop.provider = MockProvider([
-            {"content": "A done", "tool_calls": None},
-            {"content": "B done", "tool_calls": None},
-            {"content": "C done", "tool_calls": None},
-        ])
+        loop.provider = MockProvider(
+            [
+                {"content": "A done", "tool_calls": None},
+                {"content": "B done", "tool_calls": None},
+                {"content": "C done", "tool_calls": None},
+            ]
+        )
 
         subtasks = [
             Subtask(id="a", description="Task A", dependencies=[]),
@@ -306,11 +317,13 @@ class TestTaskOrchestrator:
         orchestrator = TaskOrchestrator()
         config = make_config()
         loop = AgentLoop(config)
-        loop.provider = MockProvider([
-            {"content": "A", "tool_calls": None},
-            {"content": "B", "tool_calls": None},
-            {"content": "C", "tool_calls": None},
-        ])
+        loop.provider = MockProvider(
+            [
+                {"content": "A", "tool_calls": None},
+                {"content": "B", "tool_calls": None},
+                {"content": "C", "tool_calls": None},
+            ]
+        )
 
         subtasks = [
             Subtask(id="a", description="Task A", dependencies=[]),
@@ -327,9 +340,11 @@ class TestTaskOrchestrator:
         orchestrator = TaskOrchestrator()
         config = make_config()
         loop = AgentLoop(config)
-        loop.provider = MockProvider([
-            {"content": "X", "tool_calls": None},
-        ])
+        loop.provider = MockProvider(
+            [
+                {"content": "X", "tool_calls": None},
+            ]
+        )
 
         subtasks = [
             Subtask(id="x", description="Task X", dependencies=["y"]),
@@ -348,9 +363,11 @@ class TestTaskOrchestrator:
         orchestrator = TaskOrchestrator()
         config = make_config()
         loop = AgentLoop(config)
-        loop.provider = MockProvider([
-            {"content": "Done", "tool_calls": None},
-        ])
+        loop.provider = MockProvider(
+            [
+                {"content": "Done", "tool_calls": None},
+            ]
+        )
 
         subtasks = [Subtask(id="s1", description="Task", dependencies=[])]
         result = await orchestrator.execute_plan(subtasks, loop)
@@ -399,11 +416,12 @@ class TestTaskOrchestrator:
 # API endpoint tests
 # ---------------------------------------------------------------------------
 
-class TestAgentAPIEndpoints:
 
+class TestAgentAPIEndpoints:
     @pytest.fixture
     def test_client(self):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
+
         from engine.main import create_app
 
         config = make_config()
@@ -411,15 +429,20 @@ class TestAgentAPIEndpoints:
 
         # Patch the decomposer and orchestrator onto the routes module
         from engine.api import routes as routes_mod
-        provider = MockProvider([
-            {
-                "content": json.dumps([
-                    {"id": "sub1", "description": "Step 1", "agent_hint": "coder", "dependencies": []},
-                    {"id": "sub2", "description": "Step 2", "agent_hint": "general", "dependencies": ["sub1"]},
-                ]),
-                "tool_calls": None,
-            },
-        ])
+
+        provider = MockProvider(
+            [
+                {
+                    "content": json.dumps(
+                        [
+                            {"id": "sub1", "description": "Step 1", "agent_hint": "coder", "dependencies": []},
+                            {"id": "sub2", "description": "Step 2", "agent_hint": "general", "dependencies": ["sub1"]},
+                        ]
+                    ),
+                    "tool_calls": None,
+                },
+            ]
+        )
         routes_mod._decomposer = TaskDecomposer(provider=provider)
         routes_mod._orchestrator = TaskOrchestrator()
 
@@ -454,7 +477,8 @@ class TestAgentAPIEndpoints:
 
     @pytest.mark.asyncio
     async def test_decompose_not_initialized(self) -> None:
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
+
         from engine.main import create_app
 
         config = make_config()
@@ -462,6 +486,7 @@ class TestAgentAPIEndpoints:
 
         # Ensure decomposer is None
         from engine.api import routes as routes_mod
+
         routes_mod._decomposer = None
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

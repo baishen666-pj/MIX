@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+
 from engine.config import ProviderConfig
 
 
@@ -36,6 +37,7 @@ class OpenAICompatibleProvider(LLMProvider):
     def _get_client(self) -> Any:
         if self._client is None:
             from openai import AsyncOpenAI
+
             base_url = self.config.base_url or _default_base_url(self.config.provider)
             self._client = AsyncOpenAI(api_key=self.config.api_key, base_url=base_url)
         return self._client
@@ -131,6 +133,7 @@ class AnthropicProvider(LLMProvider):
     def _get_client(self) -> Any:
         if self._client is None:
             from anthropic import AsyncAnthropic
+
             self._client = AsyncAnthropic(api_key=self.config.api_key)
         return self._client
 
@@ -174,14 +177,16 @@ class AnthropicProvider(LLMProvider):
             elif block.type == "tool_use":
                 if tool_calls is None:
                     tool_calls = []
-                tool_calls.append({
-                    "id": block.id,
-                    "type": "function",
-                    "function": {
-                        "name": block.name,
-                        "arguments": json.dumps(block.input),
-                    },
-                })
+                tool_calls.append(
+                    {
+                        "id": block.id,
+                        "type": "function",
+                        "function": {
+                            "name": block.name,
+                            "arguments": json.dumps(block.input),
+                        },
+                    }
+                )
 
         usage = {}
         if response.usage:
@@ -194,7 +199,8 @@ class AnthropicProvider(LLMProvider):
         return {"content": text_content, "tool_calls": tool_calls, "usage": usage}
 
     async def stream(self, messages: list[dict], tools: list[dict] | None = None, **kwargs):
-        import anthropic as anthropic_mod
+        import anthropic as anthropic_mod  # noqa: F401
+
         client = self._get_client()
         system_msg = ""
         chat_messages = []

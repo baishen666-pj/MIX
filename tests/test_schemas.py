@@ -8,19 +8,18 @@ from pydantic import ValidationError
 from engine.api.schemas import (
     ChatRequest,
     ChatResponse,
-    StreamChunk,
-    SkillExecuteRequest,
-    MemorySearchRequest,
-    MemoryEntryResponse,
     CronScheduleRequest,
     DecomposeRequest,
-    OrchestrateRequest,
     HealthResponse,
+    MemoryEntryResponse,
+    MemorySearchRequest,
+    OrchestrateRequest,
+    SkillExecuteRequest,
+    StreamChunk,
 )
 
 
 class TestChatRequest:
-
     def test_minimal(self) -> None:
         req = ChatRequest(message="hello")
         assert req.message == "hello"
@@ -44,7 +43,6 @@ class TestChatRequest:
 
 
 class TestChatResponse:
-
     def test_valid(self) -> None:
         resp = ChatResponse(id="r1", session_id="s1", content="Hi")
         assert resp.id == "r1"
@@ -61,7 +59,6 @@ class TestChatResponse:
 
 
 class TestStreamChunk:
-
     def test_valid(self) -> None:
         chunk = StreamChunk(id="c1", session_id="s1", delta="Hello", done=False)
         assert chunk.done is False
@@ -72,7 +69,6 @@ class TestStreamChunk:
 
 
 class TestSkillExecuteRequest:
-
     def test_minimal(self) -> None:
         req = SkillExecuteRequest(skill_name="search")
         assert req.args is None
@@ -84,7 +80,6 @@ class TestSkillExecuteRequest:
 
 
 class TestMemorySearchRequest:
-
     def test_defaults(self) -> None:
         req = MemorySearchRequest(query="find this")
         assert req.limit == 10
@@ -97,7 +92,6 @@ class TestMemorySearchRequest:
 
 
 class TestMemoryEntryResponse:
-
     def test_valid(self) -> None:
         entry = MemoryEntryResponse(
             id="e1",
@@ -110,7 +104,6 @@ class TestMemoryEntryResponse:
 
 
 class TestCronScheduleRequest:
-
     def test_minimal(self) -> None:
         req = CronScheduleRequest(name="daily", cron="0 9 * * *", message="Good morning")
         assert req.channel is None
@@ -126,7 +119,6 @@ class TestCronScheduleRequest:
 
 
 class TestDecomposeRequest:
-
     def test_defaults(self) -> None:
         req = DecomposeRequest(task="Build API")
         assert req.max_subtasks == 5
@@ -137,14 +129,12 @@ class TestDecomposeRequest:
 
 
 class TestOrchestrateRequest:
-
     def test_valid(self) -> None:
         req = OrchestrateRequest(task="Do everything")
         assert req.task == "Do everything"
 
 
 class TestHealthResponse:
-
     def test_valid(self) -> None:
         resp = HealthResponse(status="ok", version="1.0.0", engine="running")
         assert resp.status == "ok"

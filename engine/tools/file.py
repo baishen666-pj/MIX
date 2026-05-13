@@ -6,7 +6,9 @@ from typing import Any
 from engine.tools.types import ToolResult
 
 
-async def file_read(path: str, offset: int | None = None, limit: int | None = None, line_numbers: bool = True, **_: Any) -> ToolResult:
+async def file_read(
+    path: str, offset: int | None = None, limit: int | None = None, line_numbers: bool = True, **_: Any
+) -> ToolResult:
     try:
         p = Path(path)
         if not p.exists():

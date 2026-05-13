@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import struct
 import pytest
 
 from engine.memory.embeddings import EmbeddingService
 
 
 class TestCosineSimilarity:
-
     def test_identical_vectors(self) -> None:
         vec = [1.0, 0.0, 0.0]
         assert EmbeddingService.cosine_similarity(vec, vec) == pytest.approx(1.0)
@@ -52,7 +50,6 @@ class TestCosineSimilarity:
 
 
 class TestSerializeVector:
-
     def test_roundtrip(self) -> None:
         original = [0.1, 0.2, 0.3, 0.4]
         serialized = EmbeddingService.serialize_vector(original)
@@ -92,7 +89,6 @@ class TestSerializeVector:
 
 
 class TestEmbeddingServiceInit:
-
     def test_model_not_loaded_on_init(self) -> None:
         svc = EmbeddingService()
         assert svc._model is None

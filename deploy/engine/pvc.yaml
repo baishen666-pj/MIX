@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mix-engine-data
+  namespace: mix-system
+  labels:
+    app.kubernetes.io/name: mix-engine
+    app.kubernetes.io/component: engine
+    app.kubernetes.io/part-of: mix-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard

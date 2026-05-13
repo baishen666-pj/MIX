@@ -9,15 +9,56 @@ from engine.tools.types import ToolResult
 _DEFAULT_MAX_RESULTS = 250
 _MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
-_BINARY_EXTENSIONS = frozenset({
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg",
-    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv", ".flac",
-    ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".exe", ".dll", ".so", ".dylib", ".o", ".obj", ".pyc", ".pyd",
-    ".woff", ".woff2", ".ttf", ".eot", ".otf",
-    ".sqlite", ".db", ".bin", ".dat",
-})
+_BINARY_EXTENSIONS = frozenset(
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".bmp",
+        ".ico",
+        ".webp",
+        ".svg",
+        ".mp3",
+        ".mp4",
+        ".wav",
+        ".avi",
+        ".mov",
+        ".mkv",
+        ".flac",
+        ".zip",
+        ".tar",
+        ".gz",
+        ".bz2",
+        ".xz",
+        ".7z",
+        ".rar",
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".exe",
+        ".dll",
+        ".so",
+        ".dylib",
+        ".o",
+        ".obj",
+        ".pyc",
+        ".pyd",
+        ".woff",
+        ".woff2",
+        ".ttf",
+        ".eot",
+        ".otf",
+        ".sqlite",
+        ".db",
+        ".bin",
+        ".dat",
+    }
+)
 
 
 async def content_search(

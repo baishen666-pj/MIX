@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import pytest
 import aiosqlite
+import pytest
 
+from engine.rag.chunking import Chunk, Chunker, ChunkingStrategy
+from engine.rag.citations import Citation, CitationTracker, CitedResponse
 from engine.rag.collections import CollectionManager
-from engine.rag.chunking import Chunker, ChunkingStrategy, Chunk
 from engine.rag.reranker import SimpleReranker
-from engine.rag.citations import CitationTracker, CitedResponse, Citation
-from engine.rag.pipeline import RAGPipeline, RAGQuery
 
 
 @pytest.fixture
@@ -125,10 +124,16 @@ def test_format_response_with_citations():
     response = CitedResponse(
         answer="The answer is 42",
         citations=[
-            Citation(document_id="d1", document_name="guide.txt",
-                     collection_id="c1", collection_name="docs",
-                     chunk_index=0, content="42 is the answer",
-                     relevance_score=0.95, section="Chapter 1"),
+            Citation(
+                document_id="d1",
+                document_name="guide.txt",
+                collection_id="c1",
+                collection_name="docs",
+                chunk_index=0,
+                content="42 is the answer",
+                relevance_score=0.95,
+                section="Chapter 1",
+            ),
         ],
         confidence=0.9,
     )

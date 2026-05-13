@@ -27,4 +27,5 @@ class MCPToolBridge:
 
 def json_dump(obj: Any) -> str:
     import json
+
     return json.dumps(obj, default=str)

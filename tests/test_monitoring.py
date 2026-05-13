@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import time
 
 import pytest
 
 from engine.monitoring.metrics import MetricsCollector, _percentile
-
 
 # --- Unit: MetricsCollector core logic ---
 
@@ -176,7 +174,7 @@ async def test_metrics_endpoint() -> None:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from engine.api.routes import router, init_routes
+    from engine.api.routes import init_routes, router
     from engine.monitoring.metrics import MetricsCollector
 
     collector = MetricsCollector()

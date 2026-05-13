@@ -44,14 +44,32 @@ MODEL_TIERS: dict[str, ModelTier] = {
 
 COMPLEXITY_KEYWORDS = {
     "heavy": {
-        "architect", "design", "refactor", "migrate", "debug complex",
-        "analyze", "security audit", "performance", "optimize",
-        "multi-agent", "orchestrate", "decompose",
+        "architect",
+        "design",
+        "refactor",
+        "migrate",
+        "debug complex",
+        "analyze",
+        "security audit",
+        "performance",
+        "optimize",
+        "multi-agent",
+        "orchestrate",
+        "decompose",
     },
     "light": {
-        "summarize", "translate", "format", "list", "count",
-        "simple", "quick", "what is", "define", "explain briefly",
-        "yes or no", "true or false",
+        "summarize",
+        "translate",
+        "format",
+        "list",
+        "count",
+        "simple",
+        "quick",
+        "what is",
+        "define",
+        "explain briefly",
+        "yes or no",
+        "true or false",
     },
 }
 

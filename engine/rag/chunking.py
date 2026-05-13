@@ -1,10 +1,8 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
-
-import logging
 
 log = logging.getLogger("mix.chunking")
 
@@ -53,13 +51,15 @@ class Chunker:
         idx = 0
         while start < len(text):
             end = min(start + chunk_size, len(text))
-            chunks.append(Chunk(
-                content=text[start:end],
-                index=idx,
-                start_char=start,
-                end_char=end,
-                metadata=dict(metadata or {}),
-            ))
+            chunks.append(
+                Chunk(
+                    content=text[start:end],
+                    index=idx,
+                    start_char=start,
+                    end_char=end,
+                    metadata=dict(metadata or {}),
+                )
+            )
             start += chunk_size - overlap
             idx += 1
         return chunks
@@ -75,13 +75,15 @@ class Chunker:
         result = self._split_recursive(text, separators, chunk_size)
         chunks = []
         for i, (start, content) in enumerate(result):
-            chunks.append(Chunk(
-                content=content,
-                index=i,
-                start_char=start,
-                end_char=start + len(content),
-                metadata=dict(metadata or {}),
-            ))
+            chunks.append(
+                Chunk(
+                    content=content,
+                    index=i,
+                    start_char=start,
+                    end_char=start + len(content),
+                    metadata=dict(metadata or {}),
+                )
+            )
         return chunks
 
     def _split_recursive(
@@ -94,7 +96,7 @@ class Chunker:
             return [(0, text)]
 
         if not separators:
-            return [(i, text[i:i + chunk_size]) for i in range(0, len(text), chunk_size)]
+            return [(i, text[i : i + chunk_size]) for i in range(0, len(text), chunk_size)]
 
         sep = separators[0]
         remaining_seps = separators[1:]

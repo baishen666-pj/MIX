@@ -13,6 +13,7 @@ class EmbeddingService:
     def _load_model(self) -> Any:
         if self._model is None:
             from sentence_transformers import SentenceTransformer
+
             self._model = SentenceTransformer(self.MODEL_NAME)
         return self._model
 

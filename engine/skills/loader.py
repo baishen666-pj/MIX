@@ -49,7 +49,9 @@ else:
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "python", path, json.dumps(args),
+                "python",
+                path,
+                json.dumps(args),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
-
 import logging
+from dataclasses import dataclass
+from typing import Any
 
 log = logging.getLogger("mix.citations")
 
@@ -42,17 +41,19 @@ class CitationTracker:
             doc_name = metadata.get("filename", "unknown")
             coll_id = metadata.get("collection_id", "")
             coll_name = metadata.get("collection_name", "")
-            citations.append(Citation(
-                document_id=doc_id,
-                document_name=doc_name,
-                collection_id=coll_id,
-                collection_name=coll_name,
-                chunk_index=metadata.get("chunk_index", 0),
-                content=content,
-                relevance_score=score,
-                page_number=metadata.get("page_number"),
-                section=metadata.get("section"),
-            ))
+            citations.append(
+                Citation(
+                    document_id=doc_id,
+                    document_name=doc_name,
+                    collection_id=coll_id,
+                    collection_name=coll_name,
+                    chunk_index=metadata.get("chunk_index", 0),
+                    content=content,
+                    relevance_score=score,
+                    page_number=metadata.get("page_number"),
+                    section=metadata.get("section"),
+                )
+            )
         return citations
 
     def format_response_with_citations(self, response: CitedResponse) -> str:

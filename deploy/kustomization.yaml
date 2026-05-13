@@ -10,6 +10,7 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - secret.yaml
+  - engine/pvc.yaml
   - engine/service.yaml
   - engine/deployment.yaml
   - gateway/service.yaml

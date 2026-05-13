@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from engine.memory.store import MemoryStore
 from engine.memory.types import MemoryEntry, MemoryType
-from engine.skills.registry import SkillRegistry, SkillManifest
+from engine.skills.registry import SkillManifest, SkillRegistry
 
 
 @dataclass
@@ -72,12 +72,14 @@ class LearningLoop:
 
         for cmd, count in command_freq.items():
             if count >= 2:
-                patterns.append({
-                    "description": f"User frequently uses '{cmd}' command ({count} times)",
-                    "skill_name": f"auto-{cmd}",
-                    "triggers": [f"/{cmd}"],
-                    "confidence": min(count / 10.0, 0.9),
-                })
+                patterns.append(
+                    {
+                        "description": f"User frequently uses '{cmd}' command ({count} times)",
+                        "skill_name": f"auto-{cmd}",
+                        "triggers": [f"/{cmd}"],
+                        "confidence": min(count / 10.0, 0.9),
+                    }
+                )
 
         return patterns
 

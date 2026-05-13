@@ -1,10 +1,9 @@
-import tempfile
 from pathlib import Path
 
 import pytest
 
-from engine.skills.registry import SkillRegistry, SkillManifest
 from engine.skills.loader import SkillLoader
+from engine.skills.registry import SkillManifest, SkillRegistry
 
 
 @pytest.fixture
@@ -14,7 +13,10 @@ def skills_dir(tmp_path: Path) -> Path:
     (skill_dir / "SKILL.md").write_text(
         "# Hello Skill\n\n## name\ngreeting\n\n## version\n1.0.0\n\n"
         "## description\nSays hello\n\n## Trigger\n\n- /hello\n- hi there\n\n"
-        "## Handler\n\n```python\nasync def run(args):\n    return {'msg': f\"Hello {args.get('name', 'world')}!\"}\n```\n"
+        "## Handler\n\n```python\n"
+        "async def run(args):\n"
+        "    return {'msg': f\"Hello {args.get('name', 'world')}!\"}\n"
+        "```\n"
     )
     return tmp_path
 

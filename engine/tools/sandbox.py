@@ -12,14 +12,9 @@ class FileSandbox:
 
     def validate_path(self, path: str | Path) -> Path:
         resolved = Path(path).resolve()
-        if not any(
-            resolved == allowed or resolved.is_relative_to(allowed)
-            for allowed in self._allowed
-        ):
+        if not any(resolved == allowed or resolved.is_relative_to(allowed) for allowed in self._allowed):
             allowed_str = ", ".join(str(d) for d in self._allowed)
-            raise PermissionError(
-                f"Path '{path}' is outside allowed directories: {allowed_str}"
-            )
+            raise PermissionError(f"Path '{path}' is outside allowed directories: {allowed_str}")
         return resolved
 
     def validate_read(self, path: str | Path) -> Path:

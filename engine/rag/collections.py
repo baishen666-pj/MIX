@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
 
 import aiosqlite
-import logging
 
 log = logging.getLogger("mix.collections")
 
@@ -40,6 +39,7 @@ class CollectionManager:
         self._db = db
 
     async def initialize(self) -> None:
+        self._db.row_factory = aiosqlite.Row
         await self._db.execute("""
             CREATE TABLE IF NOT EXISTS collections (
                 id TEXT PRIMARY KEY,
@@ -73,6 +73,7 @@ class CollectionManager:
     ) -> DocumentCollection:
         coll_id = uuid.uuid4().hex[:12]
         from datetime import datetime
+
         coll = DocumentCollection(
             id=coll_id,
             name=name,
@@ -81,7 +82,9 @@ class CollectionManager:
             embedding_model=embedding_model,
         )
         await self._db.execute(
-            "INSERT INTO collections (id, name, description, created_at, embedding_model, metadata) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO collections "
+            "(id, name, description, created_at, embedding_model, metadata) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (coll.id, coll.name, coll.description, coll.created_at, coll.embedding_model, json.dumps(coll.metadata)),
         )
         await self._db.commit()
@@ -100,18 +103,20 @@ class CollectionManager:
         result = []
         for row in rows:
             doc_cursor = await self._db.execute(
-                "SELECT COUNT(*) as cnt FROM documents WHERE collection_id = ?", (row[0],)
+                "SELECT COUNT(*) as cnt FROM documents WHERE collection_id = ?", (row["id"],)
             )
             doc_row = await doc_cursor.fetchone()
-            result.append(DocumentCollection(
-                id=row[0],
-                name=row[1],
-                description=row[2],
-                created_at=row[3],
-                embedding_model=row[4],
-                metadata=json.loads(row[5]),
-                document_count=doc_row[0] if doc_row else 0,
-            ))
+            result.append(
+                DocumentCollection(
+                    id=row["id"],
+                    name=row["name"],
+                    description=row["description"],
+                    created_at=row["created_at"],
+                    embedding_model=row["embedding_model"],
+                    metadata=json.loads(row["metadata"]),
+                    document_count=doc_row["cnt"] if doc_row else 0,
+                )
+            )
         return result
 
     async def get_collection(self, collection_id: str) -> DocumentCollection | None:
@@ -119,14 +124,17 @@ class CollectionManager:
         row = await cursor.fetchone()
         if row is None:
             return None
-        doc_cursor = await self._db.execute(
-            "SELECT COUNT(*) FROM documents WHERE collection_id = ?", (row[0],)
-        )
-        doc_count = (await doc_cursor.fetchone())[0]
+        doc_cursor = await self._db.execute("SELECT COUNT(*) as cnt FROM documents WHERE collection_id = ?", (row["id"],))
+        doc_row = await doc_cursor.fetchone()
+        doc_count = doc_row["cnt"] if doc_row else 0
         return DocumentCollection(
-            id=row[0], name=row[1], description=row[2],
-            created_at=row[3], embedding_model=row[4],
-            metadata=json.loads(row[5]), document_count=doc_count,
+            id=row["id"],
+            name=row["name"],
+            description=row["description"],
+            created_at=row["created_at"],
+            embedding_model=row["embedding_model"],
+            metadata=json.loads(row["metadata"]),
+            document_count=doc_count,
         )
 
     async def add_document(
@@ -140,6 +148,7 @@ class CollectionManager:
     ) -> DocumentRecord:
         doc_id = uuid.uuid4().hex[:12]
         from datetime import datetime
+
         doc = DocumentRecord(
             id=doc_id,
             collection_id=collection_id,
@@ -151,9 +160,19 @@ class CollectionManager:
             metadata=metadata or {},
         )
         await self._db.execute(
-            "INSERT INTO documents (id, collection_id, filename, mime_type, size_bytes, chunk_count, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (doc.id, doc.collection_id, doc.filename, doc.mime_type,
-             doc.size_bytes, doc.chunk_count, doc.created_at, json.dumps(doc.metadata)),
+            "INSERT INTO documents "
+            "(id, collection_id, filename, mime_type, size_bytes, chunk_count, created_at, metadata) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                doc.id,
+                doc.collection_id,
+                doc.filename,
+                doc.mime_type,
+                doc.size_bytes,
+                doc.chunk_count,
+                doc.created_at,
+                json.dumps(doc.metadata),
+            ),
         )
         await self._db.commit()
         return doc
@@ -171,9 +190,14 @@ class CollectionManager:
         rows = await cursor.fetchall()
         return [
             DocumentRecord(
-                id=r[0], collection_id=r[1], filename=r[2], mime_type=r[3],
-                size_bytes=r[4], chunk_count=r[5], created_at=r[6],
-                metadata=json.loads(r[7]),
+                id=r["id"],
+                collection_id=r["collection_id"],
+                filename=r["filename"],
+                mime_type=r["mime_type"],
+                size_bytes=r["size_bytes"],
+                chunk_count=r["chunk_count"],
+                created_at=r["created_at"],
+                metadata=json.loads(r["metadata"]),
             )
             for r in rows
         ]

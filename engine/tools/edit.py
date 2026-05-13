@@ -27,9 +27,7 @@ async def file_edit(
         count = content.count(old_string)
 
         if count == 0:
-            return ToolResult(
-                output="", error=f"old_string not found in {path}", success=False
-            )
+            return ToolResult(output="", error=f"old_string not found in {path}", success=False)
         if count > 1 and not replace_all:
             return ToolResult(
                 output="",
@@ -39,7 +37,9 @@ async def file_edit(
                 success=False,
             )
 
-        new_content = content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
+        new_content = (
+            content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
+        )
         p.write_text(new_content, encoding="utf-8")
 
         replaced = count if replace_all else 1

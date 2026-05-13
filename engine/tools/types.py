@@ -9,7 +9,7 @@ class ToolResult:
     output: str
     error: str | None = None
     success: bool = True
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -55,7 +55,11 @@ TOOL_DEFINITIONS = [
                     "path": {"type": "string", "description": "File path to read"},
                     "offset": {"type": "integer", "description": "Line offset (0-based)"},
                     "limit": {"type": "integer", "description": "Max lines to read"},
-                    "line_numbers": {"type": "boolean", "description": "Show line numbers (default: true)", "default": True},
+                    "line_numbers": {
+                        "type": "boolean",
+                        "description": "Show line numbers (default: true)",
+                        "default": True,
+                    },
                 },
                 "required": ["path"],
             },
@@ -118,7 +122,11 @@ TOOL_DEFINITIONS = [
                     "path": {"type": "string", "description": "File path to edit"},
                     "old_string": {"type": "string", "description": "The exact text to replace"},
                     "new_string": {"type": "string", "description": "The replacement text"},
-                    "replace_all": {"type": "boolean", "description": "Replace all occurrences (default: false)", "default": False},
+                    "replace_all": {
+                        "type": "boolean",
+                        "description": "Replace all occurrences (default: false)",
+                        "default": False,
+                    },
                 },
                 "required": ["path", "old_string", "new_string"],
             },
@@ -152,7 +160,12 @@ TOOL_DEFINITIONS = [
                     "pattern": {"type": "string", "description": "Regex pattern to search for"},
                     "path": {"type": "string", "description": "Directory or file to search in", "default": "."},
                     "glob": {"type": "string", "description": "File pattern filter (e.g. *.py)"},
-                    "output_mode": {"type": "string", "enum": ["content", "files_with_matches", "count"], "description": "Output format", "default": "content"},
+                    "output_mode": {
+                        "type": "string",
+                        "enum": ["content", "files_with_matches", "count"],
+                        "description": "Output format",
+                        "default": "content",
+                    },
                     "ignore_case": {"type": "boolean", "description": "Case-insensitive search", "default": False},
                     "context": {"type": "integer", "description": "Lines of context around matches", "default": 0},
                     "max_results": {"type": "integer", "description": "Max results (default 250)", "default": 250},
@@ -185,7 +198,12 @@ TOOL_DEFINITIONS = [
                 "type": "object",
                 "properties": {
                     "url": {"type": "string", "description": "URL to fetch"},
-                    "format": {"type": "string", "enum": ["text", "json"], "description": "Response format", "default": "text"},
+                    "format": {
+                        "type": "string",
+                        "enum": ["text", "json"],
+                        "description": "Response format",
+                        "default": "text",
+                    },
                     "timeout": {"type": "integer", "description": "Timeout in seconds (default 20)", "default": 20},
                 },
                 "required": ["url"],
@@ -200,7 +218,10 @@ TOOL_DEFINITIONS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "expression": {"type": "string", "description": "Math expression (e.g. '2+3*4', 'sqrt(144)', 'sin(pi/2)')"},
+                    "expression": {
+                        "type": "string",
+                        "description": "Math expression (e.g. '2+3*4', 'sqrt(144)', 'sin(pi/2)')",
+                    },
                 },
                 "required": ["expression"],
             },

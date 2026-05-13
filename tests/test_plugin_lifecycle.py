@@ -1,8 +1,9 @@
-import pytest
 from pathlib import Path
 
-from engine.skills.registry import SkillRegistry, SkillManifest
-from engine.skills.plugin_context import PluginContext, VALID_HOOKS
+import pytest
+
+from engine.skills.plugin_context import PluginContext
+from engine.skills.registry import SkillManifest, SkillRegistry
 
 
 def test_skill_manifest_hooks_and_permissions():

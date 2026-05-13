@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from engine.voice import stt, tts
 
 
 class TestSTT:
-
     @pytest.mark.asyncio
     @patch("openai.AsyncOpenAI")
     async def test_transcribe_file_not_found(self, mock_openai_cls) -> None:
@@ -82,7 +82,6 @@ class TestSTT:
 
 
 class TestTTS:
-
     @pytest.mark.asyncio
     @patch("openai.AsyncOpenAI")
     async def test_synthesize_creates_file(self, mock_openai_cls, tmp_path: Path) -> None:
@@ -140,7 +139,6 @@ class TestTTS:
 
 
 class TestTTSStream:
-
     @pytest.mark.asyncio
     @patch("openai.AsyncOpenAI")
     async def test_synthesize_stream_yields_chunks(self, mock_openai_cls) -> None:

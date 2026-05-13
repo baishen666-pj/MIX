@@ -1,6 +1,6 @@
 import pytest
 
-from engine.tools.webfetch import web_fetch, _strip_html
+from engine.tools.webfetch import _strip_html, web_fetch
 
 
 def test_strip_html():

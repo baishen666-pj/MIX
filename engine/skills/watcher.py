@@ -37,6 +37,7 @@ class SkillWatcher:
     async def _watch_loop(self) -> None:
         try:
             from watchfiles import awatch
+
             async for changes in awatch(self._skills_dir):
                 if not self._running:
                     break

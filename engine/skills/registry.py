@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
 import re
 import shutil
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -194,10 +192,13 @@ class SkillRegistry:
 
     def _clone_github(self, url: str, target: Path) -> bool:
         import subprocess
+
         try:
             subprocess.run(
                 ["git", "clone", "--depth", "1", url, str(target)],
-                capture_output=True, timeout=60, check=True,
+                capture_output=True,
+                timeout=60,
+                check=True,
             )
             return True
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):

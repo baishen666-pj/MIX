@@ -1,10 +1,11 @@
+from pathlib import Path
+
 import pytest
 
 from engine.learning.loop import LearningLoop
-from engine.learning.nudge import CronScheduler, should_run, parse_cron
+from engine.learning.nudge import CronScheduler, parse_cron, should_run
 from engine.memory.store import MemoryStore
 from engine.skills.registry import SkillRegistry
-from pathlib import Path
 
 
 @pytest.fixture
@@ -49,12 +50,14 @@ def test_cron_parse_invalid() -> None:
 
 def test_should_run_wildcard() -> None:
     from datetime import datetime, timezone
+
     now = datetime(2026, 1, 15, 9, 30, tzinfo=timezone.utc)
     assert should_run("* * * * *", now) is True
 
 
 def test_should_run_specific_minute() -> None:
     from datetime import datetime, timezone
+
     now = datetime(2026, 1, 15, 9, 30, tzinfo=timezone.utc)
     assert should_run("30 * * * *", now) is True
     assert should_run("31 * * * *", now) is False
@@ -62,6 +65,7 @@ def test_should_run_specific_minute() -> None:
 
 def test_should_run_step() -> None:
     from datetime import datetime, timezone
+
     now = datetime(2026, 1, 15, 9, 30, tzinfo=timezone.utc)
     assert should_run("*/5 * * * *", now) is True
     assert should_run("*/7 * * * *", now) is False

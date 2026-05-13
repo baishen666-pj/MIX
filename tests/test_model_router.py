@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
-
 from engine.agent.model_router import (
+    MODEL_TIERS,
+    ModelTier,
     classify_complexity,
     route_model,
-    ModelTier,
-    MODEL_TIERS,
 )
 
 
 class TestClassifyComplexity:
-
     def test_simple_question_is_light(self) -> None:
         assert classify_complexity("What is Python?") == "light"
 
@@ -55,7 +52,6 @@ class TestClassifyComplexity:
 
 
 class TestRouteModel:
-
     def test_returns_model_tier(self) -> None:
         tier = route_model("What is Python?")
         assert isinstance(tier, ModelTier)

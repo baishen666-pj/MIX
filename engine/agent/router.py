@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from engine.agent.loop import AgentLoop
-from engine.agent.roles import get_role, AgentRole
+from engine.agent.roles import get_role
 from engine.config import MixConfig
 from engine.memory.store import MemoryStore
 from engine.tools.registry import ToolRegistry
@@ -129,20 +129,24 @@ class AgentRouter:
     def list_agents(self) -> list[dict[str, Any]]:
         result = []
         for name, agent in self._agents.items():
-            result.append({
-                "name": name,
-                "role": agent.role,
-                "channels": agent.channels,
-                "allowed_users": agent.allowed_users,
-                "model": agent.config.llm.model,
-                "system_prompt": agent.system_prompt[:200] if agent.system_prompt else "",
-            })
-        result.append({
-            "name": "main",
-            "role": self._default_agent.role,
-            "channels": [],
-            "allowed_users": [],
-            "model": self._default_agent.config.llm.model,
-            "system_prompt": self._default_agent.system_prompt[:200] if self._default_agent.system_prompt else "",
-        })
+            result.append(
+                {
+                    "name": name,
+                    "role": agent.role,
+                    "channels": agent.channels,
+                    "allowed_users": agent.allowed_users,
+                    "model": agent.config.llm.model,
+                    "system_prompt": agent.system_prompt[:200] if agent.system_prompt else "",
+                }
+            )
+        result.append(
+            {
+                "name": "main",
+                "role": self._default_agent.role,
+                "channels": [],
+                "allowed_users": [],
+                "model": self._default_agent.config.llm.model,
+                "system_prompt": self._default_agent.system_prompt[:200] if self._default_agent.system_prompt else "",
+            }
+        )
         return result

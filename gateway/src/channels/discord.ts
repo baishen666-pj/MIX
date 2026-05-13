@@ -1,6 +1,5 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 interface DiscordConfig {
   botToken: string;
@@ -8,9 +7,8 @@ interface DiscordConfig {
   dmPolicy?: "pairing" | "open" | "closed";
 }
 
-export class DiscordChannel implements ChannelAdapter {
+export class DiscordChannel extends BaseChannel {
   readonly name = "discord" as const;
-  private handlers: MessageHandler[] = [];
   private config: DiscordConfig;
   private ws: WebSocket | null = null;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -18,11 +16,8 @@ export class DiscordChannel implements ChannelAdapter {
   private resumeUrl: string | null = null;
 
   constructor(config: DiscordConfig) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
@@ -37,7 +32,7 @@ export class DiscordChannel implements ChannelAdapter {
     }
     this.ws?.close();
     this.ws = null;
-    this.handlers = [];
+    await super.stop();
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -111,9 +106,7 @@ export class DiscordChannel implements ChannelAdapter {
         timestamp: new Date().toISOString(),
       };
 
-      for (const handler of this.handlers) {
-        handler(msg);
-      }
+      this.dispatch(msg);
     }
   }
 

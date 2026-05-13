@@ -3,8 +3,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from engine.sandbox.types import SandboxBackend
-
 
 class DockerBackend:
     name = "docker"
@@ -15,13 +13,21 @@ class DockerBackend:
 
     async def execute(self, command: str, timeout: int = 30, cwd: str | None = None) -> dict[str, Any]:
         docker_cmd = [
-            "docker", "run", "--rm",
-            "--network", "none",
-            "--memory", "512m",
-            "--cpus", "1",
-            "--pids-limit", "64",
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--memory",
+            "512m",
+            "--cpus",
+            "1",
+            "--pids-limit",
+            "64",
             self.image,
-            "sh", "-c", command,
+            "sh",
+            "-c",
+            command,
         ]
 
         try:
@@ -30,9 +36,7 @@ class DockerBackend:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout or self.default_timeout
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout or self.default_timeout)
             return {
                 "stdout": stdout.decode(errors="replace"),
                 "stderr": stderr.decode(errors="replace"),

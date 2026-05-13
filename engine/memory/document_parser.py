@@ -19,6 +19,7 @@ def extract_text(file_path: str, mime_type: str = "") -> str:
 
 def _extract_pdf(path: Path) -> str:
     from PyPDF2 import PdfReader
+
     reader = PdfReader(str(path))
     pages = []
     for page in reader.pages:
@@ -30,5 +31,6 @@ def _extract_pdf(path: Path) -> str:
 
 def _extract_docx(path: Path) -> str:
     from docx import Document
+
     doc = Document(str(path))
     return "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from engine.mcp.client import MCPClient, MCPServerConfig, MCPTool, _validate_mcp_url
 
 
 class TestValidateMCPUrl:
-
     def test_accepts_https_url(self) -> None:
         _validate_mcp_url("https://api.example.com/mcp")
 
@@ -47,7 +46,6 @@ class TestValidateMCPUrl:
 
 
 class TestMCPServerConfig:
-
     def test_defaults(self) -> None:
         cfg = MCPServerConfig(name="test", url="https://example.com")
         assert cfg.api_key == ""
@@ -55,7 +53,6 @@ class TestMCPServerConfig:
 
 
 class TestMCPClient:
-
     def test_register_server(self) -> None:
         client = MCPClient()
         cfg = MCPServerConfig(name="svc", url="https://svc.example.com")

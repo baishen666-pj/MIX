@@ -3,11 +3,11 @@ from __future__ import annotations
 import pytest
 
 from engine.agent.roles import (
+    PREDEFINED_ROLES,
     AgentRole,
     get_role,
     list_roles,
     register_role,
-    PREDEFINED_ROLES,
 )
 
 

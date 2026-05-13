@@ -1,7 +1,5 @@
-import pytest
 import json
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from fastapi import FastAPI
 from starlette.responses import StreamingResponse
 from starlette.testclient import TestClient
@@ -21,6 +19,7 @@ def test_sse_format():
             async for chunk in mock_stream("test"):
                 yield f"data: {json.dumps(chunk)}\n\n"
             yield "data: [DONE]\n\n"
+
         return StreamingResponse(gen(), media_type="text/event-stream")
 
     client = TestClient(app)
@@ -45,6 +44,7 @@ def test_sse_missing_param_returns_422():
     async def chat_stream(message: str = ""):
         if not message:
             from fastapi import HTTPException
+
             raise HTTPException(400, "message required")
         return StreamingResponse(iter([]), media_type="text/event-stream")
 

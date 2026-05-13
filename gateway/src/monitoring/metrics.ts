@@ -52,7 +52,7 @@ export class MetricsMiddleware {
     const statusCode = reply.statusCode ?? 0;
     const durationMs = 0; // Will be computed externally via hook timing
 
-    this.recordRequest(endpoint, durationMs, statusCode);
+    this.recordTimedRequest(endpoint, durationMs, statusCode);
     done();
   }
 
