@@ -595,6 +595,184 @@ export async function createServer(config: GatewayConfig) {
     });
   });
 
+  // --- Tools Enhanced ---
+
+  app.post("/api/tools/dynamic", async (request, reply) => {
+    try {
+      const res = await bridge.proxyPost("/api/tools/dynamic", request.body);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.delete("/api/tools/dynamic/:name", async (request, reply) => {
+    const { name } = request.params as { name: string };
+    try {
+      const res = await bridge.proxyDelete(`/api/tools/dynamic/${name}`);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.post("/api/tools/chain", async (request, reply) => {
+    try {
+      const res = await bridge.proxyPost("/api/tools/chain", request.body);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.get("/api/tools/approval/pending", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/tools/approval/pending");
+      return await res.json();
+    } catch {
+      return { requests: [] };
+    }
+  });
+
+  app.post("/api/tools/approval/:requestId/approve", async (request, reply) => {
+    const { requestId } = request.params as { requestId: string };
+    try {
+      const res = await bridge.proxyPost(`/api/tools/approval/${requestId}/approve`, {});
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.post("/api/tools/approval/:requestId/reject", async (request, reply) => {
+    const { requestId } = request.params as { requestId: string };
+    try {
+      const res = await bridge.proxyPost(`/api/tools/approval/${requestId}/reject`, request.body);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.get("/api/tools/history", async (request, reply) => {
+    const query = (request.query as Record<string, string>) || {};
+    const params = new URLSearchParams(query).toString();
+    try {
+      const res = await bridge.proxyGet(`/api/tools/history?${params}`);
+      return await res.json();
+    } catch {
+      return { records: [] };
+    }
+  });
+
+  app.get("/api/tools/history/stats", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/tools/history/stats");
+      return await res.json();
+    } catch {
+      return { total: 0, tools: {}, avg_time_ms: 0 };
+    }
+  });
+
+  // --- Agents ---
+
+  app.get("/api/agents", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/agents");
+      return await res.json();
+    } catch {
+      return { agents: [{ name: "main", channels: [], model: "default" }] };
+    }
+  });
+
+  app.post("/api/agents", async (request, reply) => {
+    try {
+      const res = await bridge.proxyPost("/api/agents", request.body);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.get("/api/agents/roles", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/agents/roles");
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.get("/api/agents/collaborations", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/agents/collaborations");
+      return await res.json();
+    } catch (err) {
+      return { plans: [] };
+    }
+  });
+
+  app.post("/api/agents/collaborate", async (request, reply) => {
+    try {
+      const res = await bridge.proxyPost("/api/agents/collaborate", request.body);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.get("/api/agents/collaborate/:planId", async (request, reply) => {
+    const { planId } = request.params as { planId: string };
+    try {
+      const res = await bridge.proxyGet(`/api/agents/collaborate/${planId}`);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.get("/api/agents/:name", async (request, reply) => {
+    const { name } = request.params as { name: string };
+    try {
+      const res = await bridge.proxyGet(`/api/agents/${name}`);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.put("/api/agents/:name", async (request, reply) => {
+    const { name } = request.params as { name: string };
+    try {
+      const res = await bridge.proxyPut(`/api/agents/${name}`, request.body);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
+  app.delete("/api/agents/:name", async (request, reply) => {
+    const { name } = request.params as { name: string };
+    try {
+      const res = await bridge.proxyDelete(`/api/agents/${name}`);
+      return await res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: String(err) };
+    }
+  });
+
   // --- Voice ---
 
   app.post("/api/voice/stt", async (request, reply) => {

@@ -192,4 +192,70 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "calculator",
+            "description": "Evaluate mathematical expressions safely. Supports arithmetic, trig, log, and constants.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "expression": {"type": "string", "description": "Math expression (e.g. '2+3*4', 'sqrt(144)', 'sin(pi/2)')"},
+                },
+                "required": ["expression"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "scraper",
+            "description": "Scrape web pages and extract structured data using CSS selectors or JSON-LD",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "URL to scrape"},
+                    "selectors": {"type": "object", "description": "CSS selectors {key: selector}"},
+                    "extract_links": {"type": "boolean", "description": "Extract all links"},
+                    "extract_images": {"type": "boolean", "description": "Extract image URLs"},
+                    "format": {"type": "string", "enum": ["text", "json"], "default": "text"},
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "code_execute",
+            "description": "Execute code in a sandboxed environment. Supports Python and JavaScript.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "language": {"type": "string", "enum": ["python", "javascript"]},
+                    "code": {"type": "string", "description": "Code to execute"},
+                    "timeout": {"type": "integer", "default": 30},
+                    "stdin": {"type": "string"},
+                },
+                "required": ["language", "code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "image_generate",
+            "description": "Generate images from text descriptions using DALL-E",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "Image description"},
+                    "size": {"type": "string", "enum": ["1024x1024", "1792x1024", "1024x1792"], "default": "1024x1024"},
+                    "n": {"type": "integer", "default": 1},
+                    "style": {"type": "string", "enum": ["vivid", "natural"], "default": "vivid"},
+                },
+                "required": ["prompt"],
+            },
+        },
+    },
 ]

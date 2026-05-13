@@ -12,6 +12,7 @@ from engine.agent.router import AgentRouter
 from engine.agent.bus import AgentBus
 from engine.agent.decomposer import TaskDecomposer
 from engine.agent.orchestrator import TaskOrchestrator
+from engine.agent.collaboration import CollaborationEngine
 from engine.api.routes import router, init_routes
 from engine.config import MixConfig
 from engine.memory.store import MemoryStore
@@ -21,6 +22,14 @@ from engine.skills.plugin_context import PluginContext
 from engine.learning.loop import LearningLoop
 from engine.learning.nudge import CronScheduler
 from engine.tools.registry import ToolRegistry
+from engine.tools.dynamic import DynamicToolRegistry
+from engine.tools.approval import ApprovalManager
+from engine.tools.history import ToolHistory
+from engine.rag.collections import CollectionManager
+from engine.rag.chunking import Chunker, ChunkingStrategy
+from engine.rag.reranker import SimpleReranker
+from engine.rag.citations import CitationTracker
+from engine.rag.pipeline import RAGPipeline
 from engine.mcp.client import MCPClient
 from engine.middleware.rate_limit import RateLimiter, RateLimitMiddleware
 from engine.middleware.api_key_auth import ApiKeyMiddleware
@@ -61,6 +70,12 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
 
     memory = MemoryStore(config.memory.db_path)
     tools = ToolRegistry()
+    dynamic_tools = DynamicToolRegistry()
+    approval = ApprovalManager(auto_approve_safe=True)
+    history = ToolHistory()
+    tools.set_dynamic_registry(dynamic_tools)
+    tools.set_approval_manager(approval)
+    tools.set_history(history)
     agent_loop = AgentLoop(config, memory=memory, tools=tools)
     skill_registry = SkillRegistry(skills_dir=Path("skills"))
     skill_count = skill_registry.load_all()
@@ -71,7 +86,11 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     bus = AgentBus()
     decomposer = TaskDecomposer(provider=agent_loop.provider)
     orchestrator = TaskOrchestrator()
+    collaboration = CollaborationEngine(bus, agent_router, memory)
     metrics = MetricsCollector()
+
+    rag_collections: CollectionManager | None = None
+    rag_pipeline: RAGPipeline | None = None
     skill_watcher = SkillWatcher(Path("skills"), skill_registry)
     plugin_ctx = PluginContext(config=config, memory=memory, tools=tools, skill_registry=skill_registry)
 
@@ -81,13 +100,35 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
         decomposer=decomposer,
         orchestrator=orchestrator,
         metrics=metrics,
+        collaboration=collaboration,
     )
     app.include_router(router, prefix="/api")
 
     @app.on_event("startup")
     async def startup():
+        nonlocal rag_collections, rag_pipeline
         config.memory.db_path.parent.mkdir(parents=True, exist_ok=True)
         await memory.connect()
+        rag_collections = CollectionManager(memory._db)
+        await rag_collections.initialize()
+        rag_pipeline = RAGPipeline(
+            memory=memory,
+            collections=rag_collections,
+            chunker=Chunker(ChunkingStrategy.RECURSIVE),
+            reranker=SimpleReranker(),
+            citations=CitationTracker(rag_collections),
+            provider=agent_loop.provider,
+        )
+        init_routes(
+            agent_loop, memory, skill_registry, learning, cron, agent_router, mcp,
+            api_key=config.llm.api_key,
+            decomposer=decomposer,
+            orchestrator=orchestrator,
+            metrics=metrics,
+            collaboration=collaboration,
+            rag_collections=rag_collections,
+            rag_pipeline=rag_pipeline,
+        )
         cron.start()
         await skill_watcher.start()
         if skill_count > 0:

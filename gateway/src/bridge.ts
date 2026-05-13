@@ -115,6 +115,20 @@ export class EngineBridge {
     });
   }
 
+  async proxyPut(path: string, body: unknown): Promise<Response> {
+    return fetch(`${this.baseUrl}${path}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async proxyDelete(path: string): Promise<Response> {
+    return fetch(`${this.baseUrl}${path}`, {
+      method: "DELETE",
+    });
+  }
+
   async uploadFile(file: File): Promise<{status: string; filename: string; chunks_created: number}> {
     const formData = new FormData();
     formData.append("file", file);

@@ -90,3 +90,89 @@ class ModelRouteResponse(BaseModel):
     model: str
     context_window: int
     max_output_tokens: int
+
+
+# --- Multi-Agent Collaboration ---
+
+class AgentCreateRequest(BaseModel):
+    name: str
+    role: str = "general"
+    channels: list[str] | None = None
+    allowed_users: list[str] | None = None
+    model_tier: str | None = None
+    system_prompt_override: str | None = None
+
+
+class AgentUpdateRequest(BaseModel):
+    channels: list[str] | None = None
+    allowed_users: list[str] | None = None
+    system_prompt: str | None = None
+    role: str | None = None
+
+
+class AgentResponse(BaseModel):
+    name: str
+    role: str
+    channels: list[str]
+    allowed_users: list[str]
+    model: str
+    system_prompt: str
+    status: str = "active"
+
+
+class CollaborateRequest(BaseModel):
+    task: str
+    pattern: str = "sequential"
+    max_rounds: int = 3
+    agents: list[str] | None = None
+
+
+class CollaborationStatusResponse(BaseModel):
+    id: str
+    pattern: str
+    task: str
+    status: str
+    steps: list[dict]
+    result: dict | None = None
+
+
+# --- Tool Enhancement ---
+
+class DynamicToolRegisterRequest(BaseModel):
+    name: str
+    description: str
+    parameters: dict
+    handler_code: str
+    examples: list[dict] | None = None
+    constraints: dict | None = None
+    danger_level: str = "safe"
+
+
+class ToolChainCreateRequest(BaseModel):
+    name: str
+    description: str
+    steps: list[dict]
+    output_key: str = ""
+
+
+class ApprovalActionRequest(BaseModel):
+    request_id: str
+    action: str
+    reason: str | None = None
+
+
+# --- RAG ---
+
+class CollectionCreateRequest(BaseModel):
+    name: str
+    description: str = ""
+    embedding_model: str = "all-MiniLM-L6-v2"
+
+
+class RAGQueryRequest(BaseModel):
+    query: str
+    collection_ids: list[str] | None = None
+    top_k: int = 10
+    rerank: bool = True
+    rerank_top_k: int = 5
+    include_citations: bool = True

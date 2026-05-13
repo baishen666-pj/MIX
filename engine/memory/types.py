@@ -26,6 +26,9 @@ class MemoryEntry:
     accessed_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     access_count: int = 0
     importance: float = 0.5
+    collection_id: str | None = None
+    document_id: str | None = None
+    metadata: dict = field(default_factory=dict)
 
     def touch(self) -> None:
         self.accessed_at = datetime.now(timezone.utc).isoformat()

@@ -19,6 +19,16 @@ from engine.api.schemas import (
     STTResponse,
     ModelRouteRequest,
     ModelRouteResponse,
+    AgentCreateRequest,
+    AgentUpdateRequest,
+    AgentResponse,
+    CollaborateRequest,
+    CollaborationStatusResponse,
+    DynamicToolRegisterRequest,
+    ToolChainCreateRequest,
+    ApprovalActionRequest,
+    CollectionCreateRequest,
+    RAGQueryRequest,
 )
 from engine.agent.loop import AgentLoop
 from engine.memory.store import MemoryStore
@@ -47,6 +57,9 @@ _decomposer: Any = None
 _orchestrator: Any = None
 _metrics: MetricsCollector | None = None
 _config: Any = None
+_collaboration: Any = None
+_rag_collections: Any = None
+_rag_pipeline: Any = None
 
 
 def init_routes(
@@ -62,8 +75,11 @@ def init_routes(
     orchestrator: Any = None,
     metrics: MetricsCollector | None = None,
     config: Any = None,
+    collaboration: Any = None,
+    rag_collections: Any = None,
+    rag_pipeline: Any = None,
 ) -> None:
-    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp, _api_key, _decomposer, _orchestrator, _metrics, _config
+    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp, _api_key, _decomposer, _orchestrator, _metrics, _config, _collaboration, _rag_collections, _rag_pipeline
     _agent_loop = agent_loop
     _memory = memory
     _skill_registry = skill_registry
@@ -78,6 +94,9 @@ def init_routes(
     _orchestrator = orchestrator
     _metrics = metrics
     _config = config
+    _collaboration = collaboration
+    _rag_collections = rag_collections
+    _rag_pipeline = rag_pipeline
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -478,6 +497,110 @@ async def tool_execute(tool_name: str, body: dict | None = None):
     return result.to_dict()
 
 
+@router.post("/tools/dynamic")
+async def tools_dynamic_register(req: DynamicToolRegisterRequest):
+    if _tools is None or _tools._dynamic is None:
+        raise HTTPException(503, "Dynamic tool system not initialized")
+    from engine.tools.dynamic import DynamicToolDef
+    defn = DynamicToolDef(
+        name=req.name,
+        description=req.description,
+        parameters=req.parameters,
+        handler_code=req.handler_code,
+        examples=req.examples or [],
+        constraints=req.constraints or {},
+        danger_level=req.danger_level,
+    )
+    await _tools._dynamic.register(defn)
+    return {"status": "ok", "tool": req.name}
+
+
+@router.delete("/tools/dynamic/{name}")
+async def tools_dynamic_unregister(name: str):
+    if _tools is None or _tools._dynamic is None:
+        raise HTTPException(503, "Dynamic tool system not initialized")
+    removed = await _tools._dynamic.unregister(name)
+    if not removed:
+        raise HTTPException(404, f"Dynamic tool '{name}' not found")
+    return {"status": "ok", "removed": name}
+
+
+@router.post("/tools/chain")
+async def tools_chain_execute(req: ToolChainCreateRequest):
+    if _tools is None:
+        raise HTTPException(503, "Tool registry not initialized")
+    from engine.tools.composition import ToolChain, ToolChainStep, ToolChainExecutor
+    steps = []
+    for s in req.steps:
+        steps.append(ToolChainStep(
+            tool_name=s.get("tool_name", ""),
+            input_mapping=s.get("input_mapping", {}),
+            fixed_args=s.get("fixed_args", {}),
+        ))
+    chain = ToolChain(
+        name=req.name,
+        description=req.description,
+        steps=steps,
+        output_key=req.output_key,
+    )
+    executor = ToolChainExecutor(_tools)
+    result = await executor.execute_chain(chain, initial_args={})
+    return result.to_dict()
+
+
+@router.get("/tools/approval/pending")
+async def tools_approval_pending():
+    if _tools is None or _tools._approval is None:
+        return {"requests": []}
+    return {"requests": [r.to_dict() for r in _tools._approval.get_pending()]}
+
+
+@router.post("/tools/approval/{request_id}/approve")
+async def tools_approval_approve(request_id: str):
+    if _tools is None or _tools._approval is None:
+        raise HTTPException(503, "Approval system not initialized")
+    approved = await _tools._approval.approve(request_id)
+    if not approved:
+        raise HTTPException(404, f"Request '{request_id}' not found or already resolved")
+    return {"status": "ok"}
+
+
+@router.post("/tools/approval/{request_id}/reject")
+async def tools_approval_reject(request_id: str, body: dict | None = None):
+    if _tools is None or _tools._approval is None:
+        raise HTTPException(503, "Approval system not initialized")
+    reason = (body or {}).get("reason", "")
+    rejected = await _tools._approval.reject(request_id, reason=reason)
+    if not rejected:
+        raise HTTPException(404, f"Request '{request_id}' not found or already resolved")
+    return {"status": "ok"}
+
+
+@router.get("/tools/history")
+async def tools_history(
+    tool_name: str | None = None,
+    session_id: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    if _tools is None or _tools._history is None:
+        return {"records": []}
+    records = await _tools._history.query(
+        tool_name=tool_name,
+        session_id=session_id,
+        limit=limit,
+        offset=offset,
+    )
+    return {"records": [r.to_dict() for r in records]}
+
+
+@router.get("/tools/history/stats")
+async def tools_history_stats():
+    if _tools is None or _tools._history is None:
+        return {"total": 0, "tools": {}, "avg_time_ms": 0}
+    return await _tools._history.get_stats()
+
+
 # --- Agents ---
 
 @router.get("/agents")
@@ -486,6 +609,130 @@ async def agents_list():
     if _agent_router is None:
         return {"agents": [{"name": "main", "channels": [], "model": "default"}]}
     return {"agents": _agent_router.list_agents()}
+
+
+@router.post("/agents")
+async def agents_create(req: AgentCreateRequest):
+    if _agent_router is None:
+        raise HTTPException(503, "Agent router not initialized")
+    try:
+        agent = _agent_router.register_agent(
+            name=req.name,
+            channels=req.channels or [],
+            allowed_users=req.allowed_users or [],
+            role=req.role,
+            system_prompt_override=req.system_prompt_override,
+        )
+        return AgentResponse(
+            name=agent.name,
+            role=agent.role,
+            channels=agent.channels,
+            allowed_users=agent.allowed_users,
+            model=agent.config.llm.model,
+            system_prompt=agent.system_prompt[:200],
+        )
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/agents/roles")
+async def agents_roles():
+    from engine.agent.roles import list_roles
+    roles = list_roles()
+    return {
+        "roles": [
+            {
+                "name": r.name,
+                "system_prompt": r.system_prompt[:200],
+                "allowed_tools": r.allowed_tools,
+                "default_model_tier": r.default_model_tier,
+                "max_iterations": r.max_iterations,
+            }
+            for r in roles
+        ]
+    }
+
+
+@router.get("/agents/{name}")
+async def agents_get(name: str):
+    if _agent_router is None:
+        raise HTTPException(503, "Agent router not initialized")
+    agent = _agent_router.get_agent(name)
+    if agent is None:
+        raise HTTPException(404, f"Agent '{name}' not found")
+    return AgentResponse(
+        name=agent.name,
+        role=agent.role,
+        channels=agent.channels,
+        allowed_users=agent.allowed_users,
+        model=agent.config.llm.model,
+        system_prompt=agent.system_prompt[:200],
+    )
+
+
+@router.put("/agents/{name}")
+async def agents_update(name: str, req: AgentUpdateRequest):
+    if _agent_router is None:
+        raise HTTPException(503, "Agent router not initialized")
+    updates = {}
+    if req.channels is not None:
+        updates["channels"] = req.channels
+    if req.allowed_users is not None:
+        updates["allowed_users"] = req.allowed_users
+    if req.system_prompt is not None:
+        updates["system_prompt"] = req.system_prompt
+    if req.role is not None:
+        updates["role"] = req.role
+    updated = _agent_router.update_agent(name, **updates)
+    if not updated:
+        raise HTTPException(404, f"Agent '{name}' not found")
+    return {"status": "ok"}
+
+
+@router.delete("/agents/{name}")
+async def agents_delete(name: str):
+    if _agent_router is None:
+        raise HTTPException(503, "Agent router not initialized")
+    deleted = _agent_router.delete_agent(name)
+    if not deleted:
+        raise HTTPException(404, f"Agent '{name}' not found")
+    return {"status": "ok", "deleted": name}
+
+
+@router.post("/agents/collaborate")
+async def agents_collaborate(req: CollaborateRequest):
+    if _collaboration is None:
+        raise HTTPException(503, "Collaboration engine not initialized")
+    from engine.agent.collaboration import CollaborationPattern
+    try:
+        pattern = CollaborationPattern(req.pattern)
+    except ValueError:
+        raise HTTPException(400, f"Invalid pattern: {req.pattern}. Use: sequential, parallel, debate, round_robin")
+    plan = _collaboration.create_plan(
+        pattern=pattern,
+        task=req.task,
+        agent_roles=req.agents,
+        max_rounds=req.max_rounds,
+    )
+    result = await _collaboration.execute_plan(plan)
+    return {"plan_id": plan.id, "status": plan.status, "result": result}
+
+
+@router.get("/agents/collaborate/{plan_id}")
+async def collaboration_status(plan_id: str):
+    if _collaboration is None:
+        raise HTTPException(503, "Collaboration engine not initialized")
+    status = _collaboration.get_plan_status(plan_id)
+    if status is None:
+        raise HTTPException(404, f"Plan '{plan_id}' not found")
+    return status
+
+
+@router.get("/agents/collaborations")
+async def collaborations_list():
+    if _collaboration is None:
+        return {"plans": []}
+    return {"plans": _collaboration.get_active_plans()}
 
 
 # --- Agent Communication ---
@@ -561,6 +808,142 @@ async def mcp_register(body: dict):
     _mcp.register_server(config)
     tools = await _mcp.discover_tools(config.name)
     return {"status": "ok", "server": config.name, "tools_discovered": len(tools)}
+
+
+# --- RAG ---
+
+@router.post("/rag/collections")
+async def rag_create_collection(req: CollectionCreateRequest):
+    if _collaboration is None:
+        raise HTTPException(503, "RAG pipeline not initialized")
+    from engine.api import routes as _self
+    collections_mgr = getattr(_self, '_rag_collections', None)
+    if collections_mgr is None:
+        raise HTTPException(503, "Collection manager not initialized")
+    coll = await collections_mgr.create_collection(
+        name=req.name,
+        description=req.description,
+        embedding_model=req.embedding_model,
+    )
+    return {"status": "ok", "collection": {"id": coll.id, "name": coll.name}}
+
+
+@router.get("/rag/collections")
+async def rag_list_collections():
+    from engine.api import routes as _self
+    collections_mgr = getattr(_self, '_rag_collections', None)
+    if collections_mgr is None:
+        return {"collections": []}
+    colls = await collections_mgr.list_collections()
+    return {"collections": [
+        {"id": c.id, "name": c.name, "description": c.description,
+         "document_count": c.document_count, "embedding_model": c.embedding_model}
+        for c in colls
+    ]}
+
+
+@router.get("/rag/collections/{collection_id}")
+async def rag_get_collection(collection_id: str):
+    from engine.api import routes as _self
+    collections_mgr = getattr(_self, '_rag_collections', None)
+    if collections_mgr is None:
+        raise HTTPException(503, "Collection manager not initialized")
+    coll = await collections_mgr.get_collection(collection_id)
+    if coll is None:
+        raise HTTPException(404, "Collection not found")
+    return {"id": coll.id, "name": coll.name, "description": coll.description,
+            "document_count": coll.document_count, "embedding_model": coll.embedding_model}
+
+
+@router.delete("/rag/collections/{collection_id}")
+async def rag_delete_collection(collection_id: str):
+    from engine.api import routes as _self
+    collections_mgr = getattr(_self, '_rag_collections', None)
+    if collections_mgr is None:
+        raise HTTPException(503, "Collection manager not initialized")
+    deleted = await collections_mgr.delete_collection(collection_id)
+    if not deleted:
+        raise HTTPException(404, "Collection not found")
+    return {"status": "ok", "deleted": collection_id}
+
+
+@router.post("/rag/collections/{collection_id}/documents")
+async def rag_upload_document(collection_id: str, file: UploadFile = File(...)):
+    from engine.api import routes as _self
+    rag_pipeline = getattr(_self, '_rag_pipeline', None)
+    if rag_pipeline is None:
+        raise HTTPException(503, "RAG pipeline not initialized")
+    import tempfile, os
+    from engine.memory.document_parser import extract_text
+    suffix = Path(file.filename or "file.txt").suffix
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content_bytes = await file.read()
+        tmp.write(content_bytes)
+        tmp_path = tmp.name
+    try:
+        text = extract_text(tmp_path, mime_type=file.content_type or "")
+        if not text.strip():
+            return {"error": "No text content extracted"}
+        result = await rag_pipeline.ingest(
+            collection_id=collection_id,
+            content=text,
+            filename=file.filename or "upload",
+            mime_type=file.content_type or "",
+        )
+        return {"status": "ok", **result}
+    finally:
+        os.unlink(tmp_path)
+
+
+@router.get("/rag/collections/{collection_id}/documents")
+async def rag_list_documents(collection_id: str):
+    from engine.api import routes as _self
+    collections_mgr = getattr(_self, '_rag_collections', None)
+    if collections_mgr is None:
+        return {"documents": []}
+    docs = await collections_mgr.list_documents(collection_id)
+    return {"documents": [
+        {"id": d.id, "filename": d.filename, "chunk_count": d.chunk_count,
+         "size_bytes": d.size_bytes, "created_at": d.created_at}
+        for d in docs
+    ]}
+
+
+@router.delete("/rag/documents/{document_id}")
+async def rag_delete_document(document_id: str):
+    from engine.api import routes as _self
+    collections_mgr = getattr(_self, '_rag_collections', None)
+    if collections_mgr is None:
+        raise HTTPException(503, "Collection manager not initialized")
+    deleted = await collections_mgr.delete_document(document_id)
+    if not deleted:
+        raise HTTPException(404, "Document not found")
+    return {"status": "ok", "deleted": document_id}
+
+
+@router.post("/rag/query")
+async def rag_query(req: RAGQueryRequest):
+    from engine.api import routes as _self
+    rag_pipeline = getattr(_self, '_rag_pipeline', None)
+    if rag_pipeline is None:
+        raise HTTPException(503, "RAG pipeline not initialized")
+    from engine.rag.pipeline import RAGQuery
+    query = RAGQuery(
+        query=req.query,
+        collection_ids=req.collection_ids,
+        top_k=req.top_k,
+        rerank=req.rerank,
+        rerank_top_k=req.rerank_top_k,
+        include_citations=req.include_citations,
+    )
+    result = await rag_pipeline.query(query)
+    return {
+        "answer": result.answer,
+        "citations": result.citations,
+        "retrieved_chunks": result.retrieved_chunks,
+        "reranked_chunks": result.reranked_chunks,
+        "latency_ms": round(result.latency_ms, 2),
+    }
 
 
 # --- Voice ---

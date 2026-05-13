@@ -8,6 +8,8 @@ import { MemoryView } from "./components/MemoryView";
 import { KnowledgeBase } from "./components/KnowledgeBase";
 import { SettingsView } from "./components/SettingsView";
 import { DashboardView } from "./components/DashboardView";
+import { AgentsView } from "./components/AgentsView";
+import { ToolsView } from "./components/ToolsView";
 import { ConversationSidebar } from "./components/ConversationSidebar";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { s } from "./styles";
@@ -89,7 +91,7 @@ export function App() {
         <header style={s.header}>
           <h1 style={s.title}>MIX</h1>
           <nav style={s.nav}>
-            {(["chat", "skills", "memory", "dashboard", "settings"] as Tab[]).map((t) => (
+            {(["chat", "skills", "memory", "dashboard", "agents", "tools", "settings"] as Tab[]).map((t) => (
               <button key={t} onClick={() => setTab(t)} style={tab === t ? s.navActive : s.navBtn}>
                 {t}
               </button>
@@ -127,6 +129,14 @@ export function App() {
 
         {tab === "dashboard" && (
           <DashboardView />
+        )}
+
+        {tab === "agents" && (
+          <AgentsView />
+        )}
+
+        {tab === "tools" && (
+          <ToolsView />
         )}
 
         {tab === "settings" && (

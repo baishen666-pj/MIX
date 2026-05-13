@@ -1,4 +1,4 @@
-export type Tab = "chat" | "skills" | "memory" | "dashboard" | "settings";
+export type Tab = "chat" | "skills" | "memory" | "dashboard" | "agents" | "tools" | "settings";
 
 export interface Message {
   id: string;
@@ -43,4 +43,31 @@ export interface StreamChunk {
   name?: string;
   content?: string;
   tool_calls?: unknown[];
+}
+
+export interface AgentInfo {
+  name: string;
+  role: string;
+  channels: string[];
+  allowed_users: string[];
+  model: string;
+  system_prompt: string;
+  status?: string;
+}
+
+export interface AgentRole {
+  name: string;
+  system_prompt: string;
+  allowed_tools: string[] | null;
+  default_model_tier: string;
+  max_iterations: number;
+}
+
+export interface CollaborationPlan {
+  id: string;
+  pattern: string;
+  task: string;
+  status: string;
+  steps: { id: string; role: string; status: string; result?: string; error?: string }[];
+  result?: Record<string, unknown>;
 }
