@@ -39,7 +39,7 @@ function getGatewayCommand(): { cmd: string; args: string[]; cwd: string } {
     const gatewayScript = join(process.resourcesPath, "gateway", "index.js");
     return { cmd: nodeBin, args: [gatewayScript], cwd: rootDir };
   }
-  const gatewayScript = join(rootDir, "gateway", "dist", "index.js");
+  const gatewayScript = join(rootDir, "gateway", "dist", "gateway", "src", "index.js");
   return { cmd: nodeBin, args: [gatewayScript], cwd: join(rootDir, "gateway") };
 }
 

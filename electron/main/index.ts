@@ -31,7 +31,10 @@ function createSplashWindow(): BrowserWindow {
     webPreferences: { sandbox: true },
   });
 
-  splashWindow.loadFile(join(__dirname, "../resources/splash.html"));
+  const splashPath = app.isPackaged
+    ? join(process.resourcesPath, "splash.html")
+    : join(__dirname, "../../resources/splash.html");
+  splashWindow.loadFile(splashPath);
   splashWindow.on("ready-to-show", () => splashWindow?.show());
   splashWindow.on("closed", () => { splashWindow = null; });
   return splashWindow;
