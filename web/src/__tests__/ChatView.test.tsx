@@ -29,7 +29,7 @@ describe("ChatView", () => {
       <ChatView messages={[]} connected={true} onSend={onSend} thinking={false} />
     );
 
-    const input = screen.getByPlaceholderText("Type a message...");
+    const input = screen.getByPlaceholderText("Type a message... (Shift+Enter for new line)");
     fireEvent.change(input, { target: { value: "test message" } });
     fireEvent.click(screen.getByText("Send"));
 
@@ -42,7 +42,7 @@ describe("ChatView", () => {
       <ChatView messages={[]} connected={true} onSend={onSend} thinking={false} />
     );
 
-    const input = screen.getByPlaceholderText("Type a message...");
+    const input = screen.getByPlaceholderText("Type a message... (Shift+Enter for new line)");
     fireEvent.change(input, { target: { value: "hello" } });
     fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
 
@@ -64,7 +64,7 @@ describe("ChatView", () => {
       <ChatView messages={[]} connected={false} onSend={vi.fn()} thinking={false} />
     );
 
-    const input = screen.getByPlaceholderText("Type a message...");
+    const input = screen.getByPlaceholderText("Type a message... (Shift+Enter for new line)");
     expect(input).toBeDisabled();
   });
 
@@ -102,7 +102,7 @@ describe("ChatView", () => {
       <ChatView messages={[]} connected={true} onSend={onSend} thinking={false} />
     );
 
-    const input = screen.getByPlaceholderText("Type a message...") as HTMLInputElement;
+    const input = screen.getByPlaceholderText("Type a message... (Shift+Enter for new line)") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "hello" } });
     fireEvent.click(screen.getByText("Send"));
 

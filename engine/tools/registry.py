@@ -4,20 +4,31 @@ from typing import Any
 
 from engine.tools.types import ToolResult
 from engine.tools import bash as bash_tool
+from engine.tools import edit as edit_tool
 from engine.tools import file as file_tool
+from engine.tools import grep as grep_tool
+from engine.tools import glob as glob_mod
 from engine.tools import search as search_tool
+from engine.tools import webfetch as webfetch_tool
+from engine.tools.sandbox import FileSandbox
 
 
 class ToolRegistry:
-    def __init__(self, sandbox: Any | None = None) -> None:
+    def __init__(self, sandbox: Any | None = None, file_sandbox: FileSandbox | None = None) -> None:
         self._tools: dict[str, Any] = {
             "bash": bash_tool.execute,
             "file_read": file_tool.file_read,
             "file_write": file_tool.file_write,
             "file_list": file_tool.file_list,
+            "file_edit": edit_tool.file_edit,
+            "file_edit_lines": edit_tool.file_edit_lines,
             "web_search": search_tool.web_search,
+            "grep": grep_tool.content_search,
+            "glob": glob_mod.glob_search,
+            "web_fetch": webfetch_tool.web_fetch,
         }
         self._sandbox = sandbox
+        self._file_sandbox = file_sandbox
         self._mcp_tools: dict[str, Any] = {}
 
     def set_sandbox(self, sandbox: Any) -> None:
@@ -37,6 +48,13 @@ class ToolRegistry:
                 error=f"Unknown tool: {tool_name}. Available: {', '.join(self.list_tools())}",
                 success=False,
             )
+
+        if self._file_sandbox and tool_name in ("file_read", "file_write", "file_edit", "file_edit_lines", "file_list"):
+            path_val = kwargs.get("path", ".")
+            try:
+                self._file_sandbox.validate_path(path_val)
+            except PermissionError as e:
+                return ToolResult(output="", error=str(e), success=False)
 
         if tool_name == "bash" and self._sandbox:
             return await self._execute_sandboxed(kwargs)

@@ -52,6 +52,13 @@ class RateLimitConfig:
 
 
 @dataclass
+class ToolConfig:
+    sandbox_dirs: list[str] = field(default_factory=lambda: ["."])
+    max_file_size: int = 10 * 1024 * 1024
+    max_grep_results: int = 500
+
+
+@dataclass
 class MixConfig:
     engine: EngineConfig = field(default_factory=EngineConfig)
     gateway: GatewayConfig = field(default_factory=GatewayConfig)
@@ -59,6 +66,7 @@ class MixConfig:
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     security: SecurityConfig = field(default_factory=SecurityConfig)
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
+    tools: ToolConfig = field(default_factory=ToolConfig)
 
     @classmethod
     def load(cls, path: Path | None = None) -> MixConfig:
@@ -90,6 +98,8 @@ class MixConfig:
             cfg.security = SecurityConfig(**sec)
         if "rate_limit" in data:
             cfg.rate_limit = RateLimitConfig(**data["rate_limit"])
+        if "tools" in data:
+            cfg.tools = ToolConfig(**data["tools"])
         return cfg
 
     def save(self, path: Path | None = None) -> None:
@@ -129,5 +139,10 @@ class MixConfig:
                 "enabled": self.rate_limit.enabled,
                 "requests_per_minute": self.rate_limit.requests_per_minute,
                 "requests_per_hour": self.rate_limit.requests_per_hour,
+            },
+            "tools": {
+                "sandbox_dirs": self.tools.sandbox_dirs,
+                "max_file_size": self.tools.max_file_size,
+                "max_grep_results": self.tools.max_grep_results,
             },
         }

@@ -6,7 +6,7 @@ from typing import Any
 from engine.tools.types import ToolResult
 
 
-async def file_read(path: str, offset: int | None = None, limit: int | None = None, **_: Any) -> ToolResult:
+async def file_read(path: str, offset: int | None = None, limit: int | None = None, line_numbers: bool = True, **_: Any) -> ToolResult:
     try:
         p = Path(path)
         if not p.exists():
@@ -14,14 +14,20 @@ async def file_read(path: str, offset: int | None = None, limit: int | None = No
         if not p.is_file():
             return ToolResult(output="", error=f"Not a file: {path}", success=False)
 
-        lines = p.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+        all_lines = p.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
 
-        if offset is not None:
-            lines = lines[offset:]
-        if limit is not None:
-            lines = lines[:limit]
+        start = offset if offset is not None else 0
+        end = start + limit if limit is not None else len(all_lines)
+        selected = all_lines[start:end]
 
-        return ToolResult(output="".join(lines))
+        if line_numbers:
+            numbered = []
+            for i, line in enumerate(selected, start=start + 1):
+                line_content = line.rstrip("\n")
+                numbered.append(f"{i:>6}\t{line_content}")
+            return ToolResult(output="\n".join(numbered))
+
+        return ToolResult(output="".join(selected))
     except Exception as e:
         return ToolResult(output="", error=str(e), success=False)
 

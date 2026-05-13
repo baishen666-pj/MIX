@@ -18,11 +18,11 @@ def _validate_mcp_url(url: str) -> None:
         raise ValueError("MCP URL has no hostname")
     try:
         addr = ipaddress.ip_address(host)
+    except ValueError:
+        pass  # hostname is not an IP address — that's fine for external domains
+    else:
         if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
             raise ValueError(f"MCP URL points to private/reserved IP: {host}")
-    except ValueError:
-        if not addr:
-            pass
     if host in ("localhost", "0.0.0.0", "::1"):
         raise ValueError(f"MCP URL points to local address: {host}")
 

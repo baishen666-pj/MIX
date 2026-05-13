@@ -35,7 +35,7 @@ async def test_file_read_write(tmp_path: Path) -> None:
 
     read_result = await file_read(path=str(test_file))
     assert read_result.success
-    assert read_result.output == "hello world"
+    assert "hello world" in read_result.output
 
 
 @pytest.mark.asyncio
