@@ -50,7 +50,7 @@ export function ChatView({ messages, connected, onSend, thinking }: ChatViewProp
 
   return (
     <>
-      <main style={s.messages}>
+      <main style={s.messages} aria-live="polite">
         {messages.length === 0 && !thinking && <div style={s.empty}>Send a message to start</div>}
         {messages.map((msg, i) => (
           <div key={msg.id} className="msg-fade-in" style={{ animationDelay: `${Math.min(i * 0.03, 0.15)}s` }}>

@@ -81,9 +81,16 @@ async def execute(
 
 
 async def _run_in_docker(image: str, code: str, timeout: int, stdin: str) -> ToolResult:
+    import os
     from engine.sandbox.docker import DockerBackend
 
-    backend = DockerBackend(image=image, timeout=timeout)
+    backend = DockerBackend(
+        image=image,
+        memory=os.environ.get("SANDBOX_MEMORY", "512m"),
+        cpus=os.environ.get("SANDBOX_CPUS", "1"),
+        pids_limit=int(os.environ.get("SANDBOX_PIDS_LIMIT", "64")),
+        timeout=int(os.environ.get("SANDBOX_TIMEOUT", str(timeout))),
+    )
     if "python" in image:
         shell_cmd = f"printf %s {shlex.quote(stdin)} | python3 -c {shlex.quote(code)}"
     else:

@@ -1,7 +1,6 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 import { logger } from "../utils/logger.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
 
 interface WeChatConfig {
   webhookUrl: string;
@@ -10,19 +9,15 @@ interface WeChatConfig {
   secret?: string;
 }
 
-export class WeChatChannel implements ChannelAdapter {
+export class WeChatChannel extends BaseChannel {
   readonly name = "wechat" as const;
-  private handlers: MessageHandler[] = [];
   private config: WeChatConfig;
   private accessToken: string | null = null;
   private tokenExpiry = 0;
 
   constructor(config: WeChatConfig) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
@@ -41,8 +36,8 @@ export class WeChatChannel implements ChannelAdapter {
   }
 
   async stop(): Promise<void> {
-    this.handlers = [];
     this.accessToken = null;
+    await super.stop();
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -75,9 +70,7 @@ export class WeChatChannel implements ChannelAdapter {
       timestamp: new Date().toISOString(),
     };
 
-    for (const handler of this.handlers) {
-      handler(msg);
-    }
+    this.dispatch(msg);
   }
 
   private async sendViaWebhook(content: string): Promise<void> {
@@ -109,7 +102,7 @@ export class WeChatChannel implements ChannelAdapter {
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
     }
-    // SECURITY WARNING: corpId and secret are sent as query params per WeChat API requirement.
+    // SECURITY: corpId and secret are sent as query params per WeChat API requirement.
     // Do NOT log this URL — it contains credentials.
     const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${this.config.corpId}&corpsecret=${this.config.secret}`;
     const res = await fetch(url);

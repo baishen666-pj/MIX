@@ -5,27 +5,14 @@ import multipart from "@fastify/multipart";
 import type { FastifyInstance } from "fastify";
 import type { GatewayConfig } from "./utils/config.js";
 import { EngineBridge } from "./bridge.js";
-import { ChannelRegistry } from "./channels/registry.js";
-import { WebChatChannel } from "./channels/webchat.js";
-import { TelegramChannel } from "./channels/telegram.js";
-import { DiscordChannel } from "./channels/discord.js";
-import { SlackChannel } from "./channels/slack.js";
-import { WeChatChannel } from "./channels/wechat.js";
-import { IrcChannel } from "./channels/irc.js";
-import { WhatsAppChannel } from "./channels/whatsapp.js";
-import { MatrixChannel } from "./channels/matrix.js";
-import { LineChannel } from "./channels/line.js";
-import { GoogleChatChannel } from "./channels/google-chat.js";
-import { SignalChannel } from "./channels/signal.js";
-import { TeamsChannel } from "./channels/teams.js";
-import { IMessageChannel } from "./channels/imessage.js";
-import { FeishuChannel } from "./channels/feishu.js";
 import { DmPairing, DmSecurityFilter } from "./security/dm-pairing.js";
 import type { DmPairingConfig } from "./security/acl.js";
 import { ApiKeyAuth } from "./security/api-key.js";
 import { logger } from "./utils/logger.js";
 import { validate, chatRequestSchema, pairingApproveSchema, wsMessageSchema } from "./schemas.js";
 import { MetricsMiddleware } from "./monitoring/metrics.js";
+import { setupChannels } from "./routes/channel-setup.js";
+import { registerChannelWebhooks } from "./routes/channel-webhooks.js";
 
 // ---------------------------------------------------------------------------
 // Proxy route helpers
@@ -33,17 +20,6 @@ import { MetricsMiddleware } from "./monitoring/metrics.js";
 
 type ProxyMethod = "get" | "post" | "put" | "delete";
 
-/**
- * Generic proxy route that forwards a request to the engine via the bridge
- * and returns the JSON response. Falls back to `errorFallback` on failure.
- *
- * @param app            Fastify instance
- * @param method         HTTP method
- * @param path           Route path registered on the gateway
- * @param enginePathFn   Optional function to build the engine target path from
- *                       request params/query. When omitted the gateway path is used.
- * @param errorFallback  Optional fallback value returned instead of {error} on 502.
- */
 function proxyRoute(
   bridge: EngineBridge,
   app: FastifyInstance,
@@ -104,120 +80,7 @@ export async function createServer(config: GatewayConfig) {
 
   const metricsMiddleware = new MetricsMiddleware();
 
-  const channels = new ChannelRegistry();
-  const webchat = new WebChatChannel();
-  channels.register(webchat);
-
-  const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (telegramToken) {
-    channels.register(new TelegramChannel({ botToken: telegramToken }));
-    logger.info("Telegram channel enabled");
-  }
-
-  const discordToken = process.env.DISCORD_BOT_TOKEN;
-  if (discordToken) {
-    channels.register(new DiscordChannel({ botToken: discordToken }));
-    logger.info("Discord channel enabled");
-  }
-
-  const slackToken = process.env.SLACK_BOT_TOKEN;
-  if (slackToken) {
-    channels.register(new SlackChannel({ botToken: slackToken }));
-    logger.info("Slack channel enabled");
-  }
-
-  const wechatWebhook = process.env.WECHAT_WEBHOOK_URL;
-  let wechatAdapter: WeChatChannel | undefined;
-  if (wechatWebhook) {
-    wechatAdapter = new WeChatChannel({ webhookUrl: wechatWebhook });
-    channels.register(wechatAdapter);
-    logger.info("WeChat channel enabled");
-  }
-
-  const wechatCorpId = process.env.WECHAT_CORP_ID;
-  const wechatAgentId = process.env.WECHAT_AGENT_ID;
-  const wechatSecret = process.env.WECHAT_SECRET;
-  if (!wechatWebhook && wechatCorpId && wechatAgentId && wechatSecret) {
-    wechatAdapter = new WeChatChannel({ webhookUrl: "", corpId: wechatCorpId, agentId: wechatAgentId, secret: wechatSecret });
-    channels.register(wechatAdapter);
-    logger.info("WeChat app channel enabled");
-  }
-
-  const ircServer = process.env.IRC_SERVER;
-  const ircNick = process.env.IRC_NICK;
-  if (ircServer && ircNick) {
-    const ircChannels = process.env.IRC_CHANNELS?.split(",").filter(Boolean) ?? [];
-    channels.register(new IrcChannel({
-      server: ircServer,
-      nick: ircNick,
-      channels: ircChannels,
-      port: process.env.IRC_PORT ? parseInt(process.env.IRC_PORT, 10) : undefined,
-      password: process.env.IRC_PASSWORD,
-      tls: process.env.IRC_TLS === "true",
-    }));
-    logger.info("IRC channel enabled");
-  }
-
-  const whatsappEnabled = process.env.WHATSAPP_ENABLED === "true";
-  if (whatsappEnabled) {
-    channels.register(new WhatsAppChannel());
-    logger.info("WhatsApp channel enabled");
-  }
-
-  const matrixServer = process.env.MATRIX_HOMESERVER;
-  const matrixToken = process.env.MATRIX_ACCESS_TOKEN;
-  if (matrixServer && matrixToken) {
-    channels.register(new MatrixChannel({
-      homeserverUrl: matrixServer,
-      accessToken: matrixToken,
-      userId: process.env.MATRIX_USER_ID ?? "",
-      rooms: process.env.MATRIX_ROOMS?.split(",").filter(Boolean) ?? [],
-    }));
-    logger.info("Matrix channel enabled");
-  }
-
-  const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  if (lineToken) {
-    channels.register(new LineChannel({
-      channelAccessToken: lineToken,
-      channelSecret: process.env.LINE_CHANNEL_SECRET ?? "",
-    }));
-    logger.info("LINE channel enabled");
-  }
-
-  const googleChatWebhook = process.env.GOOGLE_CHAT_WEBHOOK_URL;
-  if (googleChatWebhook) {
-    channels.register(new GoogleChatChannel({ webhookUrl: googleChatWebhook }));
-    logger.info("Google Chat channel enabled");
-  }
-
-  const signalServer = process.env.SIGNAL_SERVER_URL;
-  if (signalServer) {
-    channels.register(new SignalChannel({
-      serverUrl: signalServer,
-      phoneNumber: process.env.SIGNAL_PHONE_NUMBER ?? "",
-    }));
-    logger.info("Signal channel enabled");
-  }
-
-  const teamsBotId = process.env.TEAMS_BOT_ID;
-  if (teamsBotId) {
-    channels.register(new TeamsChannel({ botId: teamsBotId, botPassword: process.env.TEAMS_BOT_PASSWORD }));
-    logger.info("Teams channel enabled");
-  }
-
-  const imessageBusinessId = process.env.IMESSAGE_BUSINESS_ID;
-  if (imessageBusinessId) {
-    channels.register(new IMessageChannel({ businessId: imessageBusinessId, apiEndpoint: process.env.IMESSAGE_API_ENDPOINT }));
-    logger.info("iMessage channel enabled");
-  }
-
-  const feishuAppId = process.env.FEISHU_APP_ID;
-  const feishuAppSecret = process.env.FEISHU_APP_SECRET;
-  if (feishuAppId && feishuAppSecret) {
-    channels.register(new FeishuChannel({ appId: feishuAppId, appSecret: feishuAppSecret }));
-    logger.info("Feishu channel enabled");
-  }
+  const { channels, wechatAdapter } = setupChannels();
 
   const apiKeyAuth = new ApiKeyAuth(process.env as Record<string, string | undefined>);
 
@@ -227,7 +90,6 @@ export async function createServer(config: GatewayConfig) {
     url.startsWith("/api/webhook/") ||
     url.startsWith("/ws/");
 
-  // Auth + rate limit on all routes except health, webhook, and WS endpoints
   app.addHook("preHandler", (request, reply, done) => {
     if (skipAuth(request.url)) {
       done();
@@ -236,7 +98,6 @@ export async function createServer(config: GatewayConfig) {
     apiKeyAuth.authenticate(request, reply, done);
   });
 
-  // Rate limiting runs after auth
   app.addHook("preHandler", (request, reply, done) => {
     if (skipAuth(request.url)) {
       done();
@@ -245,7 +106,6 @@ export async function createServer(config: GatewayConfig) {
     apiKeyAuth.rateLimit(request, reply, done);
   });
 
-  // Metrics timing hook
   const metricsStartMap = new WeakMap<FastifyRequest, number>();
   app.addHook("onRequest", (request, _reply, done) => {
     metricsStartMap.set(request, Date.now());
@@ -334,14 +194,14 @@ export async function createServer(config: GatewayConfig) {
   });
 
   // -----------------------------------------------------------------------
-  // Config (GET is simple proxy; PUT forwards body)
+  // Config
   // -----------------------------------------------------------------------
 
   proxyRoute(bridge, app, "get", "/api/config");
   proxyRoute(bridge, app, "put", "/api/config");
 
   // -----------------------------------------------------------------------
-  // API Docs (proxy HTML/JSON -- non-trivial header forwarding)
+  // API Docs
   // -----------------------------------------------------------------------
 
   app.get("/api/docs", async (_request, reply) => {
@@ -388,7 +248,7 @@ export async function createServer(config: GatewayConfig) {
   });
 
   // -----------------------------------------------------------------------
-  // Chat (validation + streaming)
+  // Chat
   // -----------------------------------------------------------------------
 
   app.post("/api/chat", async (request, reply) => {
@@ -462,8 +322,7 @@ export async function createServer(config: GatewayConfig) {
   proxyRoute(bridge, app, "get", "/api/skills");
 
   // -----------------------------------------------------------------------
-  // Plugins (install/uninstall/update use raw fetch with bridge.baseUrl;
-  //           available forwards query params)
+  // Plugins
   // -----------------------------------------------------------------------
 
   app.post("/api/plugins/install", async (request, reply) => {
@@ -524,7 +383,7 @@ export async function createServer(config: GatewayConfig) {
   });
 
   // -----------------------------------------------------------------------
-  // Memory (search is simple proxy; ingest/upload are non-trivial)
+  // Memory
   // -----------------------------------------------------------------------
 
   proxyRoute(bridge, app, "post", "/api/memory/search");
@@ -686,7 +545,7 @@ export async function createServer(config: GatewayConfig) {
   proxyRoute(bridge, app, "post", "/api/rag/query");
 
   // -----------------------------------------------------------------------
-  // Tools Enhanced
+  // Tools
   // -----------------------------------------------------------------------
 
   proxyRoute(bridge, app, "post", "/api/tools/dynamic");
@@ -712,6 +571,9 @@ export async function createServer(config: GatewayConfig) {
 
   proxyRoute(bridge, app, "get", "/api/tools/history/stats", undefined, { total: 0, tools: {}, avg_time_ms: 0 });
 
+  proxyRoute(bridge, app, "get", "/api/tools/chains/:chainId",
+    (req) => `/api/tools/chains/${encodeURIComponent((req.params as { chainId: string }).chainId)}`);
+
   // -----------------------------------------------------------------------
   // Agents
   // -----------------------------------------------------------------------
@@ -731,7 +593,7 @@ export async function createServer(config: GatewayConfig) {
     (req) => `/api/agents/${encodeURIComponent((req.params as { name: string }).name)}`);
 
   // -----------------------------------------------------------------------
-  // Voice (file upload + streaming -- non-trivial)
+  // Voice
   // -----------------------------------------------------------------------
 
   app.post("/api/voice/stt", async (request, reply) => {
@@ -787,53 +649,7 @@ export async function createServer(config: GatewayConfig) {
   // Channel webhooks
   // -----------------------------------------------------------------------
 
-  if (wechatAdapter) {
-    app.post("/api/wechat/webhook", async (request, reply) => {
-      const body = request.body as Record<string, unknown>;
-      wechatAdapter!.receiveWebhook(body);
-      return { status: "ok" };
-    });
-  }
-
-  const lineAdapter = channels.getAdapter("line") as InstanceType<typeof LineChannel> | undefined;
-  if (lineAdapter) {
-    app.post("/api/line/webhook", async (request) => {
-      lineAdapter.receiveWebhook(request.body as Parameters<typeof lineAdapter.receiveWebhook>[0]);
-      return { status: "ok" };
-    });
-  }
-
-  const googleChatAdapter = channels.getAdapter("google_chat") as InstanceType<typeof GoogleChatChannel> | undefined;
-  if (googleChatAdapter) {
-    app.post("/api/google-chat/webhook", async (request) => {
-      googleChatAdapter.receiveEvent(request.body as Parameters<typeof googleChatAdapter.receiveEvent>[0]);
-      return { status: "ok" };
-    });
-  }
-
-  const teamsAdapter = channels.getAdapter("teams") as InstanceType<typeof TeamsChannel> | undefined;
-  if (teamsAdapter) {
-    app.post("/api/teams/webhook", async (request) => {
-      teamsAdapter.receiveActivity(request.body as Parameters<typeof teamsAdapter.receiveActivity>[0]);
-      return { status: "ok" };
-    });
-  }
-
-  const imessageAdapter = channels.getAdapter("imessage") as InstanceType<typeof IMessageChannel> | undefined;
-  if (imessageAdapter) {
-    app.post("/api/imessage/webhook", async (request) => {
-      imessageAdapter.receiveMessage(request.body as Parameters<typeof imessageAdapter.receiveMessage>[0]);
-      return { status: "ok" };
-    });
-  }
-
-  const feishuAdapter = channels.getAdapter("feishu") as InstanceType<typeof FeishuChannel> | undefined;
-  if (feishuAdapter) {
-    app.post("/api/feishu/webhook", async (request) => {
-      feishuAdapter.receiveEvent(request.body as Parameters<typeof feishuAdapter.receiveEvent>[0]);
-      return { status: "ok" };
-    });
-  }
+  registerChannelWebhooks(app, channels, wechatAdapter);
 
   return { app, channels, bridge };
 }

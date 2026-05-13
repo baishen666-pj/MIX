@@ -21,6 +21,7 @@ class ToolExecutionRecord:
     execution_time_ms: float
     session_id: str
     timestamp: float
+    chain_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -32,6 +33,7 @@ class ToolExecutionRecord:
             "execution_time_ms": round(self.execution_time_ms, 2),
             "session_id": self.session_id,
             "timestamp": self.timestamp,
+            "chain_id": self.chain_id,
         }
 
 
@@ -47,6 +49,7 @@ class ToolHistory:
         result: ToolResult,
         session_id: str,
         duration_ms: float,
+        chain_id: str | None = None,
     ) -> None:
         record = ToolExecutionRecord(
             id=uuid.uuid4().hex[:12],
@@ -57,6 +60,7 @@ class ToolHistory:
             execution_time_ms=duration_ms,
             session_id=session_id,
             timestamp=time.time(),
+            chain_id=chain_id,
         )
         self._records.append(record)
         if len(self._records) > self._max_records:
@@ -66,6 +70,7 @@ class ToolHistory:
         self,
         tool_name: str | None = None,
         session_id: str | None = None,
+        chain_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[ToolExecutionRecord]:
@@ -74,6 +79,8 @@ class ToolHistory:
             results = [r for r in results if r.tool_name == tool_name]
         if session_id:
             results = [r for r in results if r.session_id == session_id]
+        if chain_id:
+            results = [r for r in results if r.chain_id == chain_id]
         return list(reversed(results))[offset : offset + limit]
 
     async def get_stats(self) -> dict[str, Any]:

@@ -1,31 +1,22 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 export interface IMessageConfig {
   businessId?: string;
   apiEndpoint?: string;
 }
 
-export class IMessageChannel implements ChannelAdapter {
+export class IMessageChannel extends BaseChannel {
   readonly name = "imessage" as const;
-  private handlers: MessageHandler[] = [];
   private config: IMessageConfig;
 
   constructor(config: IMessageConfig = {}) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
     // Apple Messages for Business uses webhook push
-  }
-
-  async stop(): Promise<void> {
-    this.handlers = [];
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -54,6 +45,6 @@ export class IMessageChannel implements ChannelAdapter {
       metadata: { imessageUserId: payload.message.sender },
       timestamp: new Date().toISOString(),
     };
-    for (const handler of this.handlers) handler(msg);
+    this.dispatch(msg);
   }
 }

@@ -26,6 +26,7 @@
   --color-surface: #ffffff;
   --color-surface-raised: #f0f1f3;
   --color-surface-hover: #e9ecef;
+  --color-surface-alt: #e4e6e9;
 
   /* Colors - Text */
   --color-text: #1a1a1a;
@@ -44,6 +45,20 @@
   --color-error-bg: #fef2f2;
   --color-error-border: #fecaca;
   --color-error-text: #991b1b;
+
+  /* Colors - Status */
+  --color-status-success: #16a34a;
+  --color-status-warning: #ca8a04;
+  --color-status-error: #dc2626;
+  --color-status-info: #2563eb;
+  --color-status-neutral: #868e96;
+
+  /* Colors - Role Badges */
+  --color-role-coordinator: #9c27b0;
+  --color-role-researcher: #2196f3;
+  --color-role-coder: #4caf50;
+  --color-role-reviewer: #ff9800;
+  --color-role-general: #607d8b;
 
   /* Colors - Borders */
   --color-border: #dee2e6;
@@ -96,6 +111,7 @@
   --color-surface: #1a1a1a;
   --color-surface-raised: #1f1f1f;
   --color-surface-hover: #262626;
+  --color-surface-alt: #2a2a2a;
 
   /* Colors - Text */
   --color-text: #e5e5e5;
@@ -114,6 +130,20 @@
   --color-error-bg: #451a1a;
   --color-error-border: #7f1d1d;
   --color-error-text: #fca5a5;
+
+  /* Colors - Status */
+  --color-status-success: #4ade80;
+  --color-status-warning: #facc15;
+  --color-status-error: #ef4444;
+  --color-status-info: #3b82f6;
+  --color-status-neutral: #737373;
+
+  /* Colors - Role Badges */
+  --color-role-coordinator: #ba68c8;
+  --color-role-researcher: #64b5f6;
+  --color-role-coder: #81c784;
+  --color-role-reviewer: #ffb74d;
+  --color-role-general: #90a4ae;
 
   /* Colors - Borders */
   --color-border: #262626;

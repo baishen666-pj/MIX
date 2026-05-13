@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import AsyncIterator
@@ -296,6 +297,9 @@ class AgentLoop:
         msg_id = str(uuid.uuid4())
         full_content = ""
 
+        start_time = time.monotonic()
+        first_token_yielded = False
+
         for _ in range(MAX_TOOL_ITERATIONS):
             accumulated_tool_calls: list[dict] = []
 
@@ -308,12 +312,19 @@ class AgentLoop:
                 done = chunk.get("done", False)
 
                 full_content += delta
+
+                first_token_meta: dict = {}
+                if not first_token_yielded and delta:
+                    first_token_meta["first_token_time"] = round(time.monotonic() - start_time, 4)
+                    first_token_yielded = True
+
                 yield {
                     "id": msg_id,
                     "session_id": session.id,
                     "delta": delta,
                     "done": False,
                     "tool_calls": tool_calls,
+                    **({"metadata": first_token_meta} if first_token_meta else {}),
                 }
 
                 if done and tool_calls:
@@ -355,7 +366,17 @@ class AgentLoop:
                     "content": tr.content,
                 }
 
-        yield {"id": msg_id, "session_id": session.id, "delta": "", "done": True}
+        elapsed = time.monotonic() - start_time
+        tokens_per_second = len(full_content) / CHARS_PER_TOKEN / elapsed if elapsed > 0 else 0
+        yield {
+            "id": msg_id,
+            "session_id": session.id,
+            "delta": "",
+            "done": True,
+            "metadata": {
+                "tokens_per_second": round(tokens_per_second, 2),
+            },
+        }
         session.add("assistant", full_content)
         await self._persist_memory(session, "assistant", full_content)
 

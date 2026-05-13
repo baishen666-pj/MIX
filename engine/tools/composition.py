@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -53,6 +54,7 @@ class ToolChainExecutor:
     async def execute_chain(self, chain: ToolChain, initial_args: dict) -> ToolResult:
         step_outputs: list[dict[str, Any]] = [initial_args]
         last_result: ToolResult | None = None
+        chain_id = uuid.uuid4().hex[:12]
 
         for i, step in enumerate(chain.steps):
             args = dict(step.fixed_args)
@@ -63,7 +65,7 @@ class ToolChainExecutor:
                         break
 
             try:
-                result = await self._registry.execute(step.tool_name, **args)
+                result = await self._registry.execute(step.tool_name, chain_id=chain_id, **args)
                 output_dict: dict[str, Any] = {"output": result.output, "success": result.success}
                 if result.metadata:
                     output_dict.update(result.metadata)

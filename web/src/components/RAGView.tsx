@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { s } from "../styles";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface Collection {
   id: string;
@@ -47,6 +48,9 @@ export function RAGView() {
   } | null>(null);
   const [queryRunning, setQueryRunning] = useState(false);
 
+  const [pendingDeleteColl, setPendingDeleteColl] = useState<string | null>(null);
+  const [pendingDeleteDoc, setPendingDeleteDoc] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchCollections = useCallback(async () => {
@@ -89,12 +93,22 @@ export function RAGView() {
     await fetchCollections();
   };
 
-  const deleteCollection = async (id: string) => {
-    await fetch(`/api/rag/collections/${id}`, { method: "DELETE" });
-    if (selectedColl === id) {
-      setSelectedColl(null);
-      setDocuments([]);
+  const deleteCollection = (id: string) => {
+    setPendingDeleteColl(id);
+  };
+
+  const confirmDeleteCollection = async () => {
+    if (!pendingDeleteColl) return;
+    try {
+      await fetch(`/api/rag/collections/${pendingDeleteColl}`, { method: "DELETE" });
+      if (selectedColl === pendingDeleteColl) {
+        setSelectedColl(null);
+        setDocuments([]);
+      }
+    } catch {
+      // Deletion failed — UI will remain unchanged
     }
+    setPendingDeleteColl(null);
     await fetchCollections();
   };
 
@@ -109,9 +123,19 @@ export function RAGView() {
     await fetchCollections();
   };
 
-  const deleteDocument = async (docId: string) => {
-    await fetch(`/api/rag/documents/${docId}`, { method: "DELETE" });
-    if (selectedColl) await fetchDocuments(selectedColl);
+  const deleteDocument = (docId: string) => {
+    setPendingDeleteDoc(docId);
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!pendingDeleteDoc || !selectedColl) return;
+    try {
+      await fetch(`/api/rag/documents/${pendingDeleteDoc}`, { method: "DELETE" });
+    } catch {
+      // Deletion failed — UI will remain unchanged
+    }
+    setPendingDeleteDoc(null);
+    await fetchDocuments(selectedColl);
   };
 
   const runQuery = async () => {
@@ -150,9 +174,9 @@ export function RAGView() {
             onClick={() => setRagTab(t)}
             style={{
               ...s.button,
-              background: ragTab === t ? "#4fc3f7" : "transparent",
-              color: ragTab === t ? "#000" : "#aaa",
-              border: `1px solid ${ragTab === t ? "#4fc3f7" : "#444"}`,
+              background: ragTab === t ? "var(--color-status-info)" : "transparent",
+              color: ragTab === t ? "var(--color-text)" : "var(--color-text-muted)",
+              border: `1px solid ${ragTab === t ? "var(--color-status-info)" : "var(--color-border)"}`,
             }}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -190,22 +214,22 @@ export function RAGView() {
                   ...s.card,
                   cursor: "pointer",
                   marginBottom: 8,
-                  border: selectedColl === coll.id ? "2px solid #4fc3f7" : "1px solid #333",
+                  border: selectedColl === coll.id ? "2px solid var(--color-status-info)" : "1px solid var(--color-border)",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <strong style={{ fontSize: 14 }}>{coll.name}</strong>
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteCollection(coll.id); }}
-                    style={{ background: "none", border: "none", color: "#f44336", cursor: "pointer", fontSize: 12 }}
+                    style={{ background: "none", border: "none", color: "var(--color-status-error)", cursor: "pointer", fontSize: 12 }}
                   >
                     x
                   </button>
                 </div>
-                <div style={{ color: "#888", fontSize: 12 }}>
+                <div style={{ color: "var(--color-text-muted)", fontSize: 12 }}>
                   {coll.document_count} docs | {coll.embedding_model}
                 </div>
-                {coll.description && <div style={{ color: "#666", fontSize: 11, marginTop: 2 }}>{coll.description}</div>}
+                {coll.description && <div style={{ color: "var(--color-text-muted)", fontSize: 11, marginTop: 2 }}>{coll.description}</div>}
               </div>
             ))}
           </div>
@@ -233,7 +257,7 @@ export function RAGView() {
                 </div>
 
                 {documents.length === 0 && (
-                  <div style={{ color: "#888", padding: 20, textAlign: "center" }}>
+                  <div style={{ color: "var(--color-text-muted)", padding: 20, textAlign: "center" }}>
                     No documents yet. Upload a file to get started.
                   </div>
                 )}
@@ -243,13 +267,13 @@ export function RAGView() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
                         <strong>{doc.filename}</strong>
-                        <span style={{ color: "#888", marginLeft: 8, fontSize: 12 }}>
+                        <span style={{ color: "var(--color-text-muted)", marginLeft: 8, fontSize: 12 }}>
                           {doc.chunk_count} chunks | {formatBytes(doc.size_bytes)}
                         </span>
                       </div>
                       <button
                         onClick={() => deleteDocument(doc.id)}
-                        style={{ ...s.button, background: "#f44336", padding: "2px 8px", fontSize: 12 }}
+                        style={{ ...s.button, background: "var(--color-status-error)", padding: "2px 8px", fontSize: 12 }}
                       >
                         Delete
                       </button>
@@ -258,7 +282,7 @@ export function RAGView() {
                 ))}
               </>
             ) : (
-              <div style={{ color: "#888", padding: 40, textAlign: "center" }}>
+              <div style={{ color: "var(--color-text-muted)", padding: 40, textAlign: "center" }}>
                 Select a collection to view and upload documents.
               </div>
             )}
@@ -281,8 +305,8 @@ export function RAGView() {
               disabled={queryRunning || !query.trim()}
               style={{
                 ...s.button,
-                background: queryRunning ? "#666" : "#4caf50",
-                color: queryRunning ? "#999" : "#fff",
+                background: queryRunning ? "var(--color-text-muted)" : "var(--color-status-success)",
+                color: queryRunning ? "var(--color-text-muted)" : "#fff",
               }}
             >
               {queryRunning ? "Searching..." : "Query"}
@@ -292,7 +316,7 @@ export function RAGView() {
           {queryResult && (
             <div>
               <div style={{ ...s.card, marginBottom: 12 }}>
-                <div style={{ color: "#888", fontSize: 12, marginBottom: 8 }}>
+                <div style={{ color: "var(--color-text-muted)", fontSize: 12, marginBottom: 8 }}>
                   Retrieved {queryResult.retrieved_chunks} chunks | {queryResult.latency_ms.toFixed(0)}ms
                 </div>
                 <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{queryResult.answer}</div>
@@ -300,16 +324,16 @@ export function RAGView() {
 
               {queryResult.citations.length > 0 && (
                 <div>
-                  <h4 style={{ margin: "16px 0 8px", color: "#aaa" }}>Sources</h4>
+                  <h4 style={{ margin: "16px 0 8px", color: "var(--color-text-muted)" }}>Sources</h4>
                   {queryResult.citations.map((cit, i) => (
                     <div key={`${cit.document_id}-${cit.chunk_index}`} style={{ ...s.card, marginBottom: 8, padding: 10 }}>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <strong style={{ color: "#4fc3f7" }}>[{i + 1}] {cit.document_name}</strong>
-                        <span style={{ color: "#888", fontSize: 12 }}>
+                        <strong style={{ color: "var(--color-status-info)" }}>[{i + 1}] {cit.document_name}</strong>
+                        <span style={{ color: "var(--color-text-muted)", fontSize: 12 }}>
                           relevance: {cit.relevance_score.toFixed(2)}
                         </span>
                       </div>
-                      <div style={{ color: "#aaa", fontSize: 12, marginTop: 4 }}>
+                      <div style={{ color: "var(--color-text-muted)", fontSize: 12, marginTop: 4 }}>
                         {cit.content.slice(0, 300)}
                       </div>
                     </div>
@@ -319,6 +343,20 @@ export function RAGView() {
             </div>
           )}
         </div>
+      )}
+      {pendingDeleteColl && (
+        <ConfirmDialog
+          message={`Delete this collection and all its documents?`}
+          onConfirm={confirmDeleteCollection}
+          onCancel={() => setPendingDeleteColl(null)}
+        />
+      )}
+      {pendingDeleteDoc && (
+        <ConfirmDialog
+          message={`Delete this document?`}
+          onConfirm={confirmDeleteDocument}
+          onCancel={() => setPendingDeleteDoc(null)}
+        />
       )}
     </div>
   );

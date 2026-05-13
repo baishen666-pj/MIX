@@ -93,7 +93,7 @@ class ToolRegistry:
     def get_danger_level(self, tool_name: str) -> str:
         return DANGER_LEVELS.get(tool_name, "safe")
 
-    async def execute(self, tool_name: str, **kwargs: Any) -> ToolResult:
+    async def execute(self, tool_name: str, chain_id: str | None = None, **kwargs: Any) -> ToolResult:
         handler = self._mcp_tools.get(tool_name) or self._tools.get(tool_name)
         if handler is None and self._dynamic and self._dynamic.has_tool(tool_name):
             result = await self._dynamic.execute(tool_name, **kwargs)
@@ -144,6 +144,7 @@ class ToolRegistry:
                 result=result,
                 session_id=kwargs.get("session_id", ""),
                 duration_ms=duration_ms,
+                chain_id=chain_id,
             )
         return result
 

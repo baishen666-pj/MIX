@@ -7,8 +7,18 @@ from typing import Any
 class DockerBackend:
     name = "docker"
 
-    def __init__(self, image: str = "python:3.11-slim", timeout: int = 60) -> None:
+    def __init__(
+        self,
+        image: str = "python:3.11-slim",
+        memory: str = "512m",
+        cpus: str = "1",
+        pids_limit: int = 64,
+        timeout: int = 60,
+    ) -> None:
         self.image = image
+        self.memory = memory
+        self.cpus = cpus
+        self.pids_limit = pids_limit
         self.default_timeout = timeout
 
     async def execute(self, command: str, timeout: int = 30, cwd: str | None = None) -> dict[str, Any]:
@@ -19,11 +29,16 @@ class DockerBackend:
             "--network",
             "none",
             "--memory",
-            "512m",
+            self.memory,
             "--cpus",
-            "1",
+            self.cpus,
             "--pids-limit",
-            "64",
+            str(self.pids_limit),
+            "--read-only",
+            "--tmpfs", "/tmp:size=100m",
+            "--cap-drop", "ALL",
+            "--security-opt", "no-new-privileges",
+            "--user", "1000:1000",
             self.image,
             "sh",
             "-c",

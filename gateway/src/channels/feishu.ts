@@ -1,6 +1,5 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 export interface FeishuConfig {
   appId: string;
@@ -15,27 +14,19 @@ interface FeishuEvent {
   };
 }
 
-export class FeishuChannel implements ChannelAdapter {
+export class FeishuChannel extends BaseChannel {
   readonly name = "feishu" as const;
-  private handlers: MessageHandler[] = [];
   private config: FeishuConfig;
   private tenantToken: string | null = null;
   private tokenExpiry = 0;
 
   constructor(config: FeishuConfig) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
     if (!this.config.appId || !this.config.appSecret) return;
-  }
-
-  async stop(): Promise<void> {
-    this.handlers = [];
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -78,7 +69,7 @@ export class FeishuChannel implements ChannelAdapter {
         },
         timestamp: new Date().toISOString(),
       };
-      for (const handler of this.handlers) handler(msg);
+      this.dispatch(msg);
     } catch {
       // Invalid JSON content
     }

@@ -1,27 +1,15 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
-type MessageHandler = (msg: ChannelMessage) => void;
-
-export class WebChatChannel implements ChannelAdapter {
+export class WebChatChannel extends BaseChannel {
   readonly name = "webchat" as const;
-  private handlers: MessageHandler[] = [];
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
-  }
 
   async start(): Promise<void> {
     // WebChat receives messages via HTTP/WS endpoints in server.ts
   }
 
-  async stop(): Promise<void> {
-    this.handlers = [];
-  }
-
   receive(msg: ChannelMessage): void {
-    for (const handler of this.handlers) {
-      handler(msg);
-    }
+    this.dispatch(msg);
   }
 
   async send(_msg: ChannelMessage): Promise<void> {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { AgentInfo, AgentRole, CollaborationPlan } from "../types";
 import { s } from "../styles";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 type AgentTab = "agents" | "collaborate" | "plans";
 
@@ -20,6 +21,8 @@ export function AgentsView() {
   const [collabRounds, setCollabRounds] = useState(3);
   const [collabResult, setCollabResult] = useState<Record<string, unknown> | null>(null);
   const [collabRunning, setCollabRunning] = useState(false);
+
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -67,13 +70,19 @@ export function AgentsView() {
     }
   };
 
-  const deleteAgent = async (name: string) => {
+  const deleteAgent = (name: string) => {
+    setPendingDelete(name);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
     try {
-      await fetch(`/api/agents/${name}`, { method: "DELETE" });
+      await fetch(`/api/agents/${pendingDelete}`, { method: "DELETE" });
       await fetchAgents();
     } catch {
       setError("Failed to delete agent");
     }
+    setPendingDelete(null);
   };
 
   const startCollaboration = async () => {
@@ -111,25 +120,25 @@ export function AgentsView() {
   };
 
   const statusColor = (status: string) => {
-    if (status === "completed") return "#4caf50";
-    if (status === "running") return "#ff9800";
-    if (status === "failed") return "#f44336";
-    return "#888";
+    if (status === "completed") return "var(--color-status-success)";
+    if (status === "running") return "var(--color-status-warning)";
+    if (status === "failed") return "var(--color-status-error)";
+    return "var(--color-status-neutral)";
   };
 
   const roleBadgeColor = (role: string) => {
-    const colors: Record<string, string> = {
-      coordinator: "#9c27b0",
-      researcher: "#2196f3",
-      coder: "#4caf50",
-      reviewer: "#ff9800",
-      general: "#607d8b",
+    const map: Record<string, string> = {
+      coordinator: "var(--color-role-coordinator)",
+      researcher: "var(--color-role-researcher)",
+      coder: "var(--color-role-coder)",
+      reviewer: "var(--color-role-reviewer)",
+      general: "var(--color-role-general)",
     };
-    return colors[role] || "#607d8b";
+    return map[role] || "var(--color-role-general)";
   };
 
   if (loading) return <div style={s.loading}>Loading agents...</div>;
-  if (error) return <div style={{ ...s.error, color: "#f44336" }}>{error}</div>;
+  if (error) return <div style={{ ...s.error, color: "var(--color-status-error)" }}>{error}</div>;
 
   return (
     <div style={{ padding: 20 }}>
@@ -140,9 +149,9 @@ export function AgentsView() {
             onClick={() => setAgentTab(t)}
             style={{
               ...s.button,
-              background: agentTab === t ? "#4fc3f7" : "transparent",
-              color: agentTab === t ? "#000" : "#aaa",
-              border: `1px solid ${agentTab === t ? "#4fc3f7" : "#444"}`,
+              background: agentTab === t ? "var(--color-status-info)" : "transparent",
+              color: agentTab === t ? "var(--color-text)" : "var(--color-text-muted)",
+              border: `1px solid ${agentTab === t ? "var(--color-status-info)" : "var(--color-border)"}`,
             }}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -190,18 +199,18 @@ export function AgentsView() {
                 {agent.name !== "main" && (
                   <button
                     onClick={() => deleteAgent(agent.name)}
-                    style={{ ...s.button, background: "#f44336", padding: "4px 12px" }}
+                    style={{ ...s.button, background: "var(--color-status-error)", padding: "4px 12px" }}
                   >
                     Delete
                   </button>
                 )}
               </div>
-              <div style={{ color: "#888", fontSize: 13, marginTop: 4 }}>
+              <div style={{ color: "var(--color-text-muted)", fontSize: 13, marginTop: 4 }}>
                 Model: {agent.model}
                 {agent.channels.length > 0 && ` | Channels: ${agent.channels.join(", ")}`}
               </div>
               {agent.system_prompt && (
-                <div style={{ color: "#aaa", fontSize: 12, marginTop: 4 }}>
+                <div style={{ color: "var(--color-text-muted)", fontSize: 12, marginTop: 4 }}>
                   {agent.system_prompt}
                 </div>
               )}
@@ -225,9 +234,9 @@ export function AgentsView() {
                 onClick={() => setCollabPattern(p)}
                 style={{
                   ...s.button,
-                  background: collabPattern === p ? "#4fc3f7" : "transparent",
-                  color: collabPattern === p ? "#000" : "#aaa",
-                  border: `1px solid ${collabPattern === p ? "#4fc3f7" : "#444"}`,
+                  background: collabPattern === p ? "var(--color-status-info)" : "transparent",
+                  color: collabPattern === p ? "var(--color-text)" : "var(--color-text-muted)",
+                  border: `1px solid ${collabPattern === p ? "var(--color-status-info)" : "var(--color-border)"}`,
                 }}
               >
                 {patternLabel(p)}
@@ -246,17 +255,17 @@ export function AgentsView() {
               disabled={collabRunning || !collabTask.trim()}
               style={{
                 ...s.button,
-                background: collabRunning ? "#666" : "#4caf50",
-                color: collabRunning ? "#999" : "#fff",
+                background: collabRunning ? "var(--color-text-muted)" : "var(--color-status-success)",
+                color: collabRunning ? "var(--color-text-muted)" : "#fff",
               }}
             >
               {collabRunning ? "Running..." : "Start"}
             </button>
           </div>
           {collabResult && (
-            <div style={{ ...s.card, background: "#1a2a1a" }}>
+            <div style={{ ...s.card, background: "var(--color-surface)" }}>
               <h4 style={{ margin: "0 0 8px" }}>Result</h4>
-              <pre style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "#ccc" }}>
+              <pre style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--color-text-secondary)" }}>
                 {JSON.stringify(collabResult, null, 2)}
               </pre>
             </div>
@@ -266,18 +275,18 @@ export function AgentsView() {
 
       {agentTab === "plans" && (
         <div>
-          {plans.length === 0 && <div style={{ color: "#888" }}>No collaboration plans yet.</div>}
+          {plans.length === 0 && <div style={{ color: "var(--color-text-muted)" }}>No collaboration plans yet.</div>}
           {plans.map((plan) => (
             <div key={plan.id} style={s.card}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <strong>{plan.id}</strong>
                 <span style={{ color: statusColor(plan.status) }}>{plan.status}</span>
               </div>
-              <div style={{ color: "#aaa", fontSize: 13 }}>{plan.task}</div>
+              <div style={{ color: "var(--color-text-muted)", fontSize: 13 }}>{plan.task}</div>
               <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
                 <span style={{
                   padding: "2px 6px", borderRadius: 4, fontSize: 11,
-                  background: "#333", color: "#aaa",
+                  background: "var(--color-surface-hover)", color: "var(--color-text-muted)",
                 }}>
                   {patternLabel(plan.pattern)}
                 </span>
@@ -294,6 +303,13 @@ export function AgentsView() {
             </div>
           ))}
         </div>
+      )}
+      {pendingDelete && (
+        <ConfirmDialog
+          message={`Delete agent "${pendingDelete}"? This cannot be undone.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
       )}
     </div>
   );

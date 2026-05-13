@@ -543,4 +543,20 @@ export const s: Record<string, CSSProperties> = {
     outline: "none",
     boxSizing: "border-box" as const,
   },
+  button: {
+    background: "var(--color-surface)",
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius-lg)",
+    padding: "6px 14px",
+    color: "var(--color-text)",
+    fontSize: "var(--font-size-sm)",
+    cursor: "pointer",
+    transition: "background var(--transition-fast), border-color var(--transition-fast)",
+  },
+  loading: {
+    padding: "var(--space-xl)",
+    color: "var(--color-text-muted)",
+    fontSize: "var(--font-size-base)",
+    textAlign: "center" as const,
+  },
 };

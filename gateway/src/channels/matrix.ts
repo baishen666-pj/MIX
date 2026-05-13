@@ -1,6 +1,5 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 export interface MatrixConfig {
   homeserverUrl: string;
@@ -17,20 +16,16 @@ interface MatrixEvent {
   room_id: string;
 }
 
-export class MatrixChannel implements ChannelAdapter {
+export class MatrixChannel extends BaseChannel {
   readonly name = "matrix" as const;
-  private handlers: MessageHandler[] = [];
   private config: MatrixConfig;
   private polling = false;
   private sinceToken: string | null = null;
   private abortController: AbortController | null = null;
 
   constructor(config: MatrixConfig) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
@@ -43,7 +38,7 @@ export class MatrixChannel implements ChannelAdapter {
   async stop(): Promise<void> {
     this.polling = false;
     this.abortController?.abort();
-    this.handlers = [];
+    await super.stop();
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -80,7 +75,7 @@ export class MatrixChannel implements ChannelAdapter {
                   metadata: { matrixRoomId: roomId },
                   timestamp: new Date().toISOString(),
                 };
-                for (const handler of this.handlers) handler(msg);
+                this.dispatch(msg);
               }
             }
           }

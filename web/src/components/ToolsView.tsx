@@ -10,6 +10,7 @@ interface ToolRecord {
   execution_time_ms: number;
   session_id: string;
   timestamp: number;
+  chain_id: string | null;
 }
 
 interface ApprovalReq {
@@ -21,7 +22,7 @@ interface ApprovalReq {
   requested_at: number;
 }
 
-type ToolViewTab = "tools" | "history" | "approval";
+type ToolViewTab = "tools" | "history" | "approval" | "chains";
 
 export function ToolsView() {
   const [viewTab, setViewTab] = useState<ToolViewTab>("tools");
@@ -86,23 +87,23 @@ export function ToolsView() {
   };
 
   const dangerColor = (level: string) => {
-    if (level === "dangerous") return "#f44336";
-    if (level === "moderate") return "#ff9800";
-    return "#4caf50";
+    if (level === "dangerous") return "var(--color-status-error)";
+    if (level === "moderate") return "var(--color-status-warning)";
+    return "var(--color-status-success)";
   };
 
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {(["tools", "history", "approval"] as ToolViewTab[]).map((t) => (
+        {(["tools", "history", "chains", "approval"] as ToolViewTab[]).map((t) => (
           <button
             key={t}
             onClick={() => setViewTab(t)}
             style={{
               ...s.button,
-              background: viewTab === t ? "#4fc3f7" : "transparent",
-              color: viewTab === t ? "#000" : "#aaa",
-              border: `1px solid ${viewTab === t ? "#4fc3f7" : "#444"}`,
+              background: viewTab === t ? "var(--color-status-info)" : "transparent",
+              color: viewTab === t ? "var(--color-text)" : "var(--color-text-muted)",
+              border: `1px solid ${viewTab === t ? "var(--color-status-info)" : "var(--color-border)"}`,
             }}
           >
             {t === "approval" ? `Approval (${pending.length})` : t.charAt(0).toUpperCase() + t.slice(1)}
@@ -136,7 +137,7 @@ export function ToolsView() {
                       {level}
                     </span>
                   </div>
-                  <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>{desc}</div>
+                  <div style={{ color: "var(--color-text-muted)", fontSize: 12, marginTop: 4 }}>{desc}</div>
                 </div>
               );
             })}
@@ -146,20 +147,20 @@ export function ToolsView() {
 
       {viewTab === "history" && (
         <div>
-          {history.length === 0 && <div style={{ color: "#888" }}>No execution history yet.</div>}
+          {history.length === 0 && <div style={{ color: "var(--color-text-muted)" }}>No execution history yet.</div>}
           {history.map((r) => (
             <div key={r.id} style={{ ...s.card, marginBottom: 8, padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <strong>{r.tool_name}</strong>
-                <span style={{ color: r.success ? "#4caf50" : "#f44336" }}>
+                <span style={{ color: r.success ? "var(--color-status-success)" : "var(--color-status-error)" }}>
                   {r.success ? "OK" : "FAIL"} ({r.execution_time_ms.toFixed(1)}ms)
                 </span>
               </div>
-              <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>
+              <div style={{ color: "var(--color-text-muted)", fontSize: 12, marginTop: 4 }}>
                 Args: {JSON.stringify(r.arguments).slice(0, 150)}
               </div>
               {r.result && (
-                <div style={{ color: "#aaa", fontSize: 12, marginTop: 2 }}>
+                <div style={{ color: "var(--color-text-muted)", fontSize: 12, marginTop: 2 }}>
                   {r.result.slice(0, 200)}
                 </div>
               )}
@@ -168,9 +169,72 @@ export function ToolsView() {
         </div>
       )}
 
+      {viewTab === "chains" && (
+        <div>
+          {(() => {
+            const chainRecords = history.filter((r) => r.chain_id);
+            if (chainRecords.length === 0) {
+              return <div style={{ color: "var(--color-text-muted)" }}>No chain executions recorded yet.</div>;
+            }
+            const groups: Record<string, ToolRecord[]> = {};
+            for (const r of chainRecords) {
+              const cid = r.chain_id!;
+              if (!groups[cid]) groups[cid] = [];
+              groups[cid].push(r);
+            }
+            return Object.entries(groups).map(([cid, steps]) => (
+              <div key={cid} style={{ ...s.card, marginBottom: 16, padding: 12 }}>
+                <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginBottom: 8 }}>
+                  Chain: {cid}
+                </div>
+                <div style={{ position: "relative", paddingLeft: 16 }}>
+                  {steps.map((step, i) => (
+                    <div key={step.id} style={{ position: "relative", paddingBottom: i < steps.length - 1 ? 16 : 0 }}>
+                      <div style={{
+                        position: "absolute",
+                        left: -11,
+                        top: 6,
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: step.success ? "var(--color-status-success)" : "var(--color-status-error)",
+                        zIndex: 1,
+                      }} />
+                      {i < steps.length - 1 && (
+                        <div style={{
+                          position: "absolute",
+                          left: -8,
+                          top: 14,
+                          width: 2,
+                          height: "calc(100% - 8px)",
+                          background: "var(--color-border)",
+                        }} />
+                      )}
+                      <div style={{
+                        background: "var(--color-surface)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: 6,
+                        padding: "6px 10px",
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                          <strong>{step.tool_name}</strong>
+                          <span style={{ color: step.success ? "var(--color-status-success)" : "var(--color-status-error)" }}>
+                            {step.success ? "OK" : "FAIL"} ({step.execution_time_ms.toFixed(1)}ms)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+      )}
+
       {viewTab === "approval" && (
         <div>
-          {pending.length === 0 && <div style={{ color: "#888" }}>No pending approvals.</div>}
+          {pending.length === 0 && <div style={{ color: "var(--color-text-muted)" }}>No pending approvals.</div>}
           {pending.map((req) => (
             <div key={req.id} style={{ ...s.card, marginBottom: 8, padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -184,14 +248,14 @@ export function ToolsView() {
                   </span>
                 </div>
               </div>
-              <pre style={{ color: "#888", fontSize: 12, margin: "8px 0" }}>
+              <pre style={{ color: "var(--color-text-muted)", fontSize: 12, margin: "8px 0" }}>
                 {JSON.stringify(req.arguments, null, 2).slice(0, 300)}
               </pre>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => approveRequest(req.id)} style={{ ...s.button, background: "#4caf50" }}>
+                <button onClick={() => approveRequest(req.id)} style={{ ...s.button, background: "var(--color-status-success)" }}>
                   Approve
                 </button>
-                <button onClick={() => rejectRequest(req.id)} style={{ ...s.button, background: "#f44336" }}>
+                <button onClick={() => rejectRequest(req.id)} style={{ ...s.button, background: "var(--color-status-error)" }}>
                   Reject
                 </button>
               </div>

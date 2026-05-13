@@ -50,6 +50,26 @@ export class EngineBridge {
     let resolve: ((value?: unknown) => void) | null = null;
     let done = false;
 
+    // Delta batching state
+    let batchDelta = "";
+    let batchTimer: ReturnType<typeof setTimeout> | null = null;
+    let batchResolve: ((value?: unknown) => void) | null = null;
+
+    const flushBatch = () => {
+      if (batchDelta) {
+        messageQueue.push({ id: req.session_id || "", session_id: "", delta: batchDelta, done: false });
+        batchDelta = "";
+      }
+      if (batchTimer) {
+        clearTimeout(batchTimer);
+        batchTimer = null;
+      }
+      if (batchResolve) {
+        batchResolve();
+        batchResolve = null;
+      }
+    };
+
     ws.onmessage = (event) => {
       let chunk: StreamChunk;
       try {
@@ -58,12 +78,33 @@ export class EngineBridge {
         logger.error("Failed to parse WebSocket message from engine", err);
         return;
       }
-      messageQueue.push(chunk);
+
+      const chunkExtra = chunk as unknown as Record<string, unknown>;
+      const isTerminal = chunk.done || chunkExtra.error || chunkExtra.type;
+
+      if (isTerminal) {
+        flushBatch();
+        messageQueue.push(chunk);
+      } else if (chunk.delta) {
+        batchDelta += chunk.delta;
+        if (!batchTimer) {
+          batchTimer = setTimeout(flushBatch, 50);
+        }
+        if (resolve) {
+          resolve();
+          resolve = null;
+        }
+        return;
+      } else {
+        messageQueue.push(chunk);
+      }
+
       if (resolve) {
         resolve();
         resolve = null;
       }
       if (chunk.done) {
+        flushBatch();
         done = true;
         ws.close();
       }
@@ -73,9 +114,14 @@ export class EngineBridge {
       ws.send(JSON.stringify(req));
     };
 
-    while (!done || messageQueue.length > 0) {
+    while (!done || messageQueue.length > 0 || batchDelta) {
       if (messageQueue.length > 0) {
         yield messageQueue.shift()!;
+      } else if (batchDelta) {
+        await new Promise((r) => {
+          batchResolve = r;
+          resolve = r;
+        });
       } else {
         await new Promise((r) => {
           resolve = r;
@@ -96,25 +142,74 @@ export class EngineBridge {
     const decoder = new TextDecoder();
     let buffer = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    // Delta batching state
+    let batchDelta = "";
+    let batchId = "";
+    let batchSessionId = "";
+    let batchTimer: ReturnType<typeof setTimeout> | null = null;
+    const batchQueue: StreamChunk[] = [];
 
-      const lines = buffer.split("\n\n");
-      buffer = lines.pop() || "";
+    const flushBatch = () => {
+      if (batchDelta) {
+        batchQueue.push({ id: batchId, session_id: batchSessionId, delta: batchDelta, done: false });
+        batchDelta = "";
+      }
+      if (batchTimer) {
+        clearTimeout(batchTimer);
+        batchTimer = null;
+      }
+    };
 
-      for (const line of lines) {
-        const dataLine = line.trim();
-        if (!dataLine.startsWith("data: ")) continue;
-        const payload = dataLine.slice(6);
-        if (payload === "[DONE]") return;
-        try {
-          yield JSON.parse(payload) as StreamChunk;
-        } catch (err) {
-          logger.error("Failed to parse SSE chunk from engine", err);
-          continue;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const dataLine = line.trim();
+          if (!dataLine.startsWith("data: ")) continue;
+          const payload = dataLine.slice(6);
+          if (payload === "[DONE]") {
+            flushBatch();
+            return;
+          }
+          try {
+            const chunk = JSON.parse(payload) as StreamChunk;
+            const chunkExtra = chunk as unknown as Record<string, unknown>;
+            const isTerminal = chunk.done || chunkExtra.error || chunkExtra.type;
+
+            if (isTerminal) {
+              flushBatch();
+              batchQueue.push(chunk);
+            } else if (chunk.delta) {
+              batchDelta += chunk.delta;
+              batchId = chunk.id;
+              batchSessionId = chunk.session_id;
+              if (!batchTimer) {
+                batchTimer = setTimeout(flushBatch, 50);
+              }
+              continue;
+            } else {
+              batchQueue.push(chunk);
+            }
+          } catch (err) {
+            logger.error("Failed to parse SSE chunk from engine", err);
+          }
         }
+
+        // Yield any completed batch items
+        while (batchQueue.length > 0) {
+          yield batchQueue.shift()!;
+        }
+      }
+    } finally {
+      flushBatch();
+      while (batchQueue.length > 0) {
+        yield batchQueue.shift()!;
       }
     }
   }

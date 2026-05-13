@@ -40,7 +40,7 @@ export function App() {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   }, []);
 
-  const { messages, connected, send, sessionId } = useWebSocket(WS_URL);
+  const { messages, connected, send, sessionId, loadHistory, clearMessages, ttfb } = useWebSocket(WS_URL);
 
   useEffect(() => {
     if (sessionId && sessionId !== currentSessionId) {
@@ -64,41 +64,59 @@ export function App() {
   const handleSend = useCallback((text: string) => {
     setThinking(true);
     send(text);
-    const checkDone = setInterval(() => {
-      const last = messages[messages.length - 1];
-      if (last && !last.streaming) {
-        setThinking(false);
-        clearInterval(checkDone);
-      }
-    }, 200);
-    setTimeout(() => { clearInterval(checkDone); setThinking(false); }, 30000);
-  }, [send, messages]);
+  }, [send]);
+
+  useEffect(() => {
+    if (!thinking) return;
+    const last = messages[messages.length - 1];
+    if (last && !last.streaming) {
+      setThinking(false);
+    }
+  }, [messages, thinking]);
 
   const handleNewSession = useCallback(() => {
     setCurrentSessionId("");
-    window.location.reload();
-  }, []);
+    clearMessages();
+  }, [clearMessages]);
 
   const skills = skillsData?.skills ?? [];
+
+  const tabLabel = (t: Tab) => {
+    const labels: Record<Tab, string> = {
+      chat: "\u{1F4AC} Chat",
+      skills: "\u{2699}\u{FE0F} Skills",
+      memory: "\u{1F9E0} Memory",
+      dashboard: "\u{1F4CA} Dashboard",
+      agents: "\u{1F916} Agents",
+      tools: "\u{1F527} Tools",
+      knowledge: "\u{1F4DA} Knowledge",
+      settings: "\u{2699}\u{FE0F} Settings",
+    };
+    return labels[t] || t;
+  };
 
   return (
     <div style={s.sidebarWrapper}>
       <ConversationSidebar
         currentSessionId={currentSessionId}
-        onSelectSession={(id) => setCurrentSessionId(id)}
+        onSelectSession={(id) => {
+          setCurrentSessionId(id);
+          loadHistory(id);
+        }}
         onNewSession={handleNewSession}
       />
       <div style={s.container}>
         <header style={s.header}>
           <h1 style={s.title}>MIX</h1>
-          <nav style={s.nav}>
+          <nav style={s.nav} role="tablist" aria-label="Main navigation">
             {(["chat", "skills", "memory", "dashboard", "agents", "tools", "knowledge", "settings"] as Tab[]).map((t) => (
-              <button key={t} onClick={() => setTab(t)} style={tab === t ? s.navActive : s.navBtn}>
-                {t}
+              <button key={t} onClick={() => setTab(t)} style={tab === t ? s.navActive : s.navBtn} role="tab" aria-selected={tab === t}>
+                {tabLabel(t)}
               </button>
             ))}
           </nav>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {ttfb !== null && <span style={s.status}>{ttfb}ms</span>}
             <span style={connected ? s.status : s.statusError}>{connected ? "on" : "off"}</span>
             <button onClick={toggleTheme} style={themeBtnStyle} aria-label="Toggle theme">
               {theme === "dark" ? "☀" : "☾"}

@@ -149,3 +149,15 @@ async def tools_history_stats():
     if _pkg._tools is None or _pkg._tools._history is None:
         return {"total": 0, "tools": {}, "avg_time_ms": 0}
     return await _pkg._tools._history.get_stats()
+
+
+@router.get("/tools/chains/{chain_id}")
+async def get_chain_detail(chain_id: str):
+    from engine.api import routes as _pkg
+
+    if _pkg._tools is None or _pkg._tools._history is None:
+        raise HTTPException(status_code=404, detail="Chain not found")
+    records = await _pkg._tools._history.query(chain_id=chain_id, limit=50)
+    if not records:
+        raise HTTPException(status_code=404, detail="Chain not found")
+    return {"chain_id": chain_id, "steps": [r.to_dict() for r in records]}

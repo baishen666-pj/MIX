@@ -1,6 +1,5 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 export interface TeamsConfig {
   botId?: string;
@@ -14,25 +13,17 @@ interface TeamsActivity {
   conversation?: { id?: string };
 }
 
-export class TeamsChannel implements ChannelAdapter {
+export class TeamsChannel extends BaseChannel {
   readonly name = "teams" as const;
-  private handlers: MessageHandler[] = [];
   private config: TeamsConfig;
 
   constructor(config: TeamsConfig = {}) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
     // Teams uses Bot Framework webhook push
-  }
-
-  async stop(): Promise<void> {
-    this.handlers = [];
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -64,6 +55,6 @@ export class TeamsChannel implements ChannelAdapter {
       },
       timestamp: new Date().toISOString(),
     };
-    for (const handler of this.handlers) handler(msg);
+    this.dispatch(msg);
   }
 }

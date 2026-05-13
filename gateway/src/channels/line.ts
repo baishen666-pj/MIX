@@ -1,6 +1,5 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 export interface LineConfig {
   channelAccessToken: string;
@@ -14,25 +13,17 @@ interface LineWebhookEvent {
   message?: { type: string; text?: string; id: string };
 }
 
-export class LineChannel implements ChannelAdapter {
+export class LineChannel extends BaseChannel {
   readonly name = "line" as const;
-  private handlers: MessageHandler[] = [];
   private config: LineConfig;
 
   constructor(config: LineConfig) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
     if (!this.config.channelAccessToken) return;
-  }
-
-  async stop(): Promise<void> {
-    this.handlers = [];
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -71,7 +62,7 @@ export class LineChannel implements ChannelAdapter {
           },
           timestamp: new Date().toISOString(),
         };
-        for (const handler of this.handlers) handler(msg);
+        this.dispatch(msg);
       }
     }
   }

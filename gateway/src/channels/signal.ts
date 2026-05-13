@@ -1,25 +1,20 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 export interface SignalConfig {
   serverUrl: string;
   phoneNumber: string;
 }
 
-export class SignalChannel implements ChannelAdapter {
+export class SignalChannel extends BaseChannel {
   readonly name = "signal" as const;
-  private handlers: MessageHandler[] = [];
   private config: SignalConfig;
   private polling = false;
   private abortController: AbortController | null = null;
 
   constructor(config: SignalConfig) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
@@ -32,7 +27,7 @@ export class SignalChannel implements ChannelAdapter {
   async stop(): Promise<void> {
     this.polling = false;
     this.abortController?.abort();
-    this.handlers = [];
+    await super.stop();
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -69,7 +64,7 @@ export class SignalChannel implements ChannelAdapter {
               metadata: { signalNumber: source },
               timestamp: new Date().toISOString(),
             };
-            for (const handler of this.handlers) handler(msg);
+            this.dispatch(msg);
           }
         }
       } catch {

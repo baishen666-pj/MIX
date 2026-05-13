@@ -14,7 +14,6 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, onRetry, onDelete }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
-  const [hovered, setHovered] = useState(false);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(message.content).then(() => {
@@ -30,8 +29,6 @@ export function MessageBubble({ message, onRetry, onDelete }: MessageBubbleProps
   return (
     <div
       style={isUser ? s.userBubble : s.botBubble}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       {isUser ? (
         <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
@@ -97,18 +94,33 @@ export function MessageBubble({ message, onRetry, onDelete }: MessageBubbleProps
         </div>
       )}
       {message.streaming && <span style={s.cursor}>|</span>}
-      {hovered && !message.streaming && (
+      {!message.streaming && (
         <div style={s.messageActions}>
-          <button onClick={handleCopy} style={s.msgActionBtn}>
+          <button onClick={handleCopy} style={{ ...s.msgActionBtn, opacity: 0.5 }} tabIndex={0} aria-label="Copy message"
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; }}
+            onFocus={(e) => { e.currentTarget.style.opacity = "1"; }}
+            onBlur={(e) => { e.currentTarget.style.opacity = "0.5"; }}
+          >
             {copied ? "Copied" : "Copy"}
           </button>
           {isUser && onRetry && (
-            <button onClick={() => onRetry(message.content)} style={s.msgActionBtn}>
+            <button onClick={() => onRetry(message.content)} style={{ ...s.msgActionBtn, opacity: 0.5 }} tabIndex={0} aria-label="Retry message"
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; }}
+              onFocus={(e) => { e.currentTarget.style.opacity = "1"; }}
+              onBlur={(e) => { e.currentTarget.style.opacity = "0.5"; }}
+            >
               Retry
             </button>
           )}
           {onDelete && (
-            <button onClick={() => onDelete(message.id)} style={s.msgActionBtn}>
+            <button onClick={() => onDelete(message.id)} style={{ ...s.msgActionBtn, opacity: 0.5 }} tabIndex={0} aria-label="Delete message"
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; }}
+              onFocus={(e) => { e.currentTarget.style.opacity = "1"; }}
+              onBlur={(e) => { e.currentTarget.style.opacity = "0.5"; }}
+            >
               Delete
             </button>
           )}

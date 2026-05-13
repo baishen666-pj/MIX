@@ -1,7 +1,15 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type MutableRefObject } from "react";
 import type { Message, StreamChunk } from "../types";
 
-function applyChunk(prev: Message[], chunk: StreamChunk, sessionId: string, setSessionId: (id: string) => void): Message[] {
+function applyChunk(
+  prev: Message[],
+  chunk: StreamChunk,
+  sessionId: string,
+  setSessionId: (id: string) => void,
+  sendTimestamp: number | null,
+  firstDeltaReceived: MutableRefObject<boolean>,
+  onTtfb: (ms: number) => void,
+): Message[] {
   if (chunk.error) return prev;
   if (chunk.session_id && !sessionId) setSessionId(chunk.session_id);
 
@@ -31,12 +39,20 @@ function applyChunk(prev: Message[], chunk: StreamChunk, sessionId: string, setS
   }
 
   if (last?.role === "assistant" && last.streaming) {
+    if (chunk.delta && !firstDeltaReceived.current && sendTimestamp !== null) {
+      firstDeltaReceived.current = true;
+      onTtfb(Date.now() - sendTimestamp);
+    }
     return [
       ...prev.slice(0, -1),
       { ...last, content: last.content + (chunk.delta || ""), streaming: !chunk.done },
     ];
   }
   if (chunk.delta) {
+    if (!firstDeltaReceived.current && sendTimestamp !== null) {
+      firstDeltaReceived.current = true;
+      onTtfb(Date.now() - sendTimestamp);
+    }
     return [
       ...prev,
       { id: chunk.id, role: "assistant", content: chunk.delta, streaming: !chunk.done, toolEvents: [] },
@@ -49,10 +65,13 @@ export function useWebSocket(url: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [connected, setConnected] = useState(false);
   const [sessionId, setSessionId] = useState("");
+  const [ttfb, setTtfb] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sseFallback = useRef(false);
   const wsFailCount = useRef(0);
+  const sendTimestampRef = useRef<number | null>(null);
+  const firstDeltaReceivedRef = useRef(false);
 
   const connect = useCallback(() => {
     const ws = new WebSocket(url);
@@ -76,7 +95,7 @@ export function useWebSocket(url: string) {
 
     ws.onmessage = (event) => {
       const chunk: StreamChunk = JSON.parse(event.data as string);
-      setMessages((prev) => applyChunk(prev, chunk, sessionId, setSessionId));
+      setMessages((prev) => applyChunk(prev, chunk, sessionId, setSessionId, sendTimestampRef.current, firstDeltaReceivedRef, (ms) => setTtfb(ms)));
     };
 
     wsRef.current = ws;
@@ -112,7 +131,7 @@ export function useWebSocket(url: string) {
           const payload = line.slice(6);
           if (payload === "[DONE]") return;
           const chunk: StreamChunk = JSON.parse(payload);
-          setMessages((prev) => applyChunk(prev, chunk, sessionId, setSessionId));
+          setMessages((prev) => applyChunk(prev, chunk, sessionId, setSessionId, sendTimestampRef.current, firstDeltaReceivedRef, (ms) => setTtfb(ms)));
         }
       }
     } catch {
@@ -121,9 +140,34 @@ export function useWebSocket(url: string) {
     }
   }, [sessionId]);
 
+  const loadHistory = useCallback(async (sid: string) => {
+    if (!sid) return;
+    try {
+      const res = await fetch(`/api/sessions/${sid}`);
+      const data = await res.json();
+      if (data.messages && Array.isArray(data.messages)) {
+        const valid = data.messages.filter(
+          (m: unknown) => m && typeof m === "object" && "id" in m && "role" in m && "content" in m,
+        );
+        setMessages(valid);
+        setSessionId(sid);
+      }
+    } catch {
+      // Session not found or unreachable
+    }
+  }, []);
+
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    setSessionId("");
+  }, []);
+
   const send = useCallback((text: string) => {
     if (!text.trim()) return;
     setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", content: text }]);
+    setTtfb(null);
+    firstDeltaReceivedRef.current = false;
+    sendTimestampRef.current = Date.now();
 
     if (sseFallback.current) {
       sendSSE(text);
@@ -134,5 +178,5 @@ export function useWebSocket(url: string) {
     }
   }, [sessionId, sendSSE]);
 
-  return { messages, connected, send, sessionId };
+  return { messages, connected, send, sessionId, loadHistory, clearMessages, ttfb };
 }

@@ -4,6 +4,8 @@ import { s } from "../styles";
 interface Session {
   id: string;
   updated_at: string;
+  title?: string;
+  message_count?: number;
 }
 
 interface ConversationSidebarProps {
@@ -108,7 +110,7 @@ export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSe
             className="sidebar-item-hover"
           >
             <div style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
-              {session.id.slice(0, 12)}...
+              {session.title ?? `Session (${session.message_count ?? 0} msgs)`}
             </div>
             <div style={{ display: "flex", gap: 2 }}>
               <button

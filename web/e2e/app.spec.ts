@@ -15,11 +15,15 @@ test.describe("MIX Web UI", () => {
   test("has all navigation tabs", async ({ page }) => {
     await page.goto("/");
     const tabs = page.locator("header nav button");
-    await expect(tabs).toHaveCount(4);
+    await expect(tabs).toHaveCount(8);
     await expect(tabs.nth(0)).toHaveText("chat");
     await expect(tabs.nth(1)).toHaveText("skills");
     await expect(tabs.nth(2)).toHaveText("memory");
-    await expect(tabs.nth(3)).toHaveText("settings");
+    await expect(tabs.nth(3)).toHaveText("dashboard");
+    await expect(tabs.nth(4)).toHaveText("agents");
+    await expect(tabs.nth(5)).toHaveText("tools");
+    await expect(tabs.nth(6)).toHaveText("knowledge");
+    await expect(tabs.nth(7)).toHaveText("settings");
   });
 
   test("switches between tabs", async ({ page }) => {

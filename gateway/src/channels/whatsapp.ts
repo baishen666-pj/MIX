@@ -9,10 +9,9 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import * as path from "path";
 import * as fs from "fs";
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 import { logger } from "../utils/logger.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
 
 export interface WhatsAppConfig {
   authDir?: string;
@@ -20,19 +19,15 @@ export interface WhatsAppConfig {
 
 const DEFAULT_AUTH_DIR = path.join(process.env.HOME ?? process.env.USERPROFILE ?? ".", ".mix", "data", "whatsapp-auth");
 
-export class WhatsAppChannel implements ChannelAdapter {
+export class WhatsAppChannel extends BaseChannel {
   readonly name = "whatsapp" as const;
-  private handlers: MessageHandler[] = [];
   private config: WhatsAppConfig;
   private sock: WASocket | null = null;
   private running = false;
 
   constructor(config: WhatsAppConfig = {}) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
@@ -46,7 +41,7 @@ export class WhatsAppChannel implements ChannelAdapter {
       this.sock.end(undefined);
       this.sock = null;
     }
-    this.handlers = [];
+    await super.stop();
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -100,9 +95,7 @@ export class WhatsAppChannel implements ChannelAdapter {
       for (const waMsg of evt.messages) {
         const channelMsg = this.toChannelMessage(waMsg);
         if (channelMsg) {
-          for (const handler of this.handlers) {
-            handler(channelMsg);
-          }
+          this.dispatch(channelMsg);
         }
       }
     });

@@ -1,6 +1,5 @@
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 export interface GoogleChatConfig {
   serviceAccountKey?: string;
@@ -18,25 +17,17 @@ interface ChatEvent {
   };
 }
 
-export class GoogleChatChannel implements ChannelAdapter {
+export class GoogleChatChannel extends BaseChannel {
   readonly name = "google_chat" as const;
-  private handlers: MessageHandler[] = [];
   private config: GoogleChatConfig;
 
   constructor(config: GoogleChatConfig = {}) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
     // Google Chat uses webhook push; no polling needed
-  }
-
-  async stop(): Promise<void> {
-    this.handlers = [];
   }
 
   async send(msg: ChannelMessage): Promise<void> {
@@ -65,6 +56,6 @@ export class GoogleChatChannel implements ChannelAdapter {
       },
       timestamp: event.eventTime ?? new Date().toISOString(),
     };
-    for (const handler of this.handlers) handler(msg);
+    this.dispatch(msg);
   }
 }
