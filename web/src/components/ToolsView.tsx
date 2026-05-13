@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { s } from "../styles";
 
 interface ToolRecord {
   id: string;
@@ -93,14 +92,14 @@ export function ToolsView() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="mix-panel">
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         {(["tools", "history", "chains", "approval"] as ToolViewTab[]).map((t) => (
           <button
             key={t}
             onClick={() => setViewTab(t)}
+            className="mix-btn"
             style={{
-              ...s.button,
               background: viewTab === t ? "var(--color-status-info)" : "transparent",
               color: viewTab === t ? "var(--color-text)" : "var(--color-text-muted)",
               border: `1px solid ${viewTab === t ? "var(--color-status-info)" : "var(--color-border)"}`,
@@ -114,7 +113,7 @@ export function ToolsView() {
       {viewTab === "tools" && (
         <div>
           {typeof stats.total === "number" && (
-            <div style={{ ...s.card, marginBottom: 16, display: "flex", gap: 20 }}>
+            <div className="mix-card" style={{ marginBottom: 16, display: "flex", gap: 20 }}>
               <div><strong>Total Executions:</strong> {String(stats.total)}</div>
               <div><strong>Success Rate:</strong> {String(stats.success_rate ?? 0)}%</div>
               <div><strong>Avg Time:</strong> {String(stats.avg_time_ms ?? 0)}ms</div>
@@ -127,7 +126,7 @@ export function ToolsView() {
               const desc = d.function?.description || "";
               const level = ["bash"].includes(name) ? "dangerous" : ["file_write", "file_edit", "file_edit_lines"].includes(name) ? "moderate" : "safe";
               return (
-                <div key={name} style={s.card}>
+                <div key={name} className="mix-card">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <strong>{name}</strong>
                     <span style={{
@@ -149,7 +148,7 @@ export function ToolsView() {
         <div>
           {history.length === 0 && <div style={{ color: "var(--color-text-muted)" }}>No execution history yet.</div>}
           {history.map((r) => (
-            <div key={r.id} style={{ ...s.card, marginBottom: 8, padding: 12 }}>
+            <div key={r.id} className="mix-card" style={{ marginBottom: 8, padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <strong>{r.tool_name}</strong>
                 <span style={{ color: r.success ? "var(--color-status-success)" : "var(--color-status-error)" }}>
@@ -183,7 +182,7 @@ export function ToolsView() {
               groups[cid].push(r);
             }
             return Object.entries(groups).map(([cid, steps]) => (
-              <div key={cid} style={{ ...s.card, marginBottom: 16, padding: 12 }}>
+              <div key={cid} className="mix-card" style={{ marginBottom: 16, padding: 12 }}>
                 <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginBottom: 8 }}>
                   Chain: {cid}
                 </div>
@@ -236,7 +235,7 @@ export function ToolsView() {
         <div>
           {pending.length === 0 && <div style={{ color: "var(--color-text-muted)" }}>No pending approvals.</div>}
           {pending.map((req) => (
-            <div key={req.id} style={{ ...s.card, marginBottom: 8, padding: 12 }}>
+            <div key={req.id} className="mix-card" style={{ marginBottom: 8, padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <strong>{req.tool_name}</strong>
@@ -252,10 +251,10 @@ export function ToolsView() {
                 {JSON.stringify(req.arguments, null, 2).slice(0, 300)}
               </pre>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => approveRequest(req.id)} style={{ ...s.button, background: "var(--color-status-success)" }}>
+                <button onClick={() => approveRequest(req.id)} className="mix-btn" style={{ background: "var(--color-status-success)" }}>
                   Approve
                 </button>
-                <button onClick={() => rejectRequest(req.id)} style={{ ...s.button, background: "var(--color-status-error)" }}>
+                <button onClick={() => rejectRequest(req.id)} className="mix-btn" style={{ background: "var(--color-status-error)" }}>
                   Reject
                 </button>
               </div>

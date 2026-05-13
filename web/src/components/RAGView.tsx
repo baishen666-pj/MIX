@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { s } from "../styles";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 interface Collection {
@@ -163,17 +162,17 @@ export function RAGView() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  if (loading) return <div style={s.loading}>Loading...</div>;
+  if (loading) return <div className="mix-panel" style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-base)", textAlign: "center" }}>Loading...</div>;
 
   return (
-    <div style={{ padding: 20 }}>
+    <div className="mix-panel">
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         {(["collections", "query"] as RagTab[]).map((t) => (
           <button
             key={t}
             onClick={() => setRagTab(t)}
+            className="mix-btn"
             style={{
-              ...s.button,
               background: ragTab === t ? "var(--color-status-info)" : "transparent",
               color: ragTab === t ? "var(--color-text)" : "var(--color-text-muted)",
               border: `1px solid ${ragTab === t ? "var(--color-status-info)" : "var(--color-border)"}`,
@@ -193,15 +192,17 @@ export function RAGView() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Collection name"
-                style={{ ...s.input, width: "100%", marginBottom: 4 }}
+                className="mix-input"
+                style={{ width: "100%", marginBottom: 4 }}
               />
               <input
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 placeholder="Description (optional)"
-                style={{ ...s.input, width: "100%", marginBottom: 4 }}
+                className="mix-input"
+                style={{ width: "100%", marginBottom: 4 }}
               />
-              <button onClick={createCollection} style={{ ...s.button, width: "100%" }}>
+              <button onClick={createCollection} className="mix-btn" style={{ width: "100%" }}>
                 Create Collection
               </button>
             </div>
@@ -210,8 +211,8 @@ export function RAGView() {
               <div
                 key={coll.id}
                 onClick={() => selectCollection(coll.id)}
+                className="mix-card"
                 style={{
-                  ...s.card,
                   cursor: "pointer",
                   marginBottom: 8,
                   border: selectedColl === coll.id ? "2px solid var(--color-status-info)" : "1px solid var(--color-border)",
@@ -251,7 +252,7 @@ export function RAGView() {
                       if (file) uploadDocument(selectedColl, file);
                     }}
                   />
-                  <button onClick={() => fileInputRef.current?.click()} style={s.button}>
+                  <button onClick={() => fileInputRef.current?.click()} className="mix-btn">
                     Upload Document
                   </button>
                 </div>
@@ -263,7 +264,7 @@ export function RAGView() {
                 )}
 
                 {documents.map((doc) => (
-                  <div key={doc.id} style={{ ...s.card, marginBottom: 8, padding: 12 }}>
+                  <div key={doc.id} className="mix-card" style={{ marginBottom: 8, padding: 12 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
                         <strong>{doc.filename}</strong>
@@ -273,7 +274,8 @@ export function RAGView() {
                       </div>
                       <button
                         onClick={() => deleteDocument(doc.id)}
-                        style={{ ...s.button, background: "var(--color-status-error)", padding: "2px 8px", fontSize: 12 }}
+                        className="mix-btn"
+                        style={{ background: "var(--color-status-error)", padding: "2px 8px", fontSize: 12 }}
                       >
                         Delete
                       </button>
@@ -297,14 +299,15 @@ export function RAGView() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Ask a question about your documents..."
-              style={{ ...s.input, flex: 1 }}
+              className="mix-input"
+              style={{ flex: 1 }}
               onKeyDown={(e) => { if (e.key === "Enter") runQuery(); }}
             />
             <button
               onClick={runQuery}
               disabled={queryRunning || !query.trim()}
+              className="mix-btn"
               style={{
-                ...s.button,
                 background: queryRunning ? "var(--color-text-muted)" : "var(--color-status-success)",
                 color: queryRunning ? "var(--color-text-muted)" : "#fff",
               }}
@@ -315,7 +318,7 @@ export function RAGView() {
 
           {queryResult && (
             <div>
-              <div style={{ ...s.card, marginBottom: 12 }}>
+              <div className="mix-card" style={{ marginBottom: 12 }}>
                 <div style={{ color: "var(--color-text-muted)", fontSize: 12, marginBottom: 8 }}>
                   Retrieved {queryResult.retrieved_chunks} chunks | {queryResult.latency_ms.toFixed(0)}ms
                 </div>
@@ -326,7 +329,7 @@ export function RAGView() {
                 <div>
                   <h4 style={{ margin: "16px 0 8px", color: "var(--color-text-muted)" }}>Sources</h4>
                   {queryResult.citations.map((cit, i) => (
-                    <div key={`${cit.document_id}-${cit.chunk_index}`} style={{ ...s.card, marginBottom: 8, padding: 10 }}>
+                    <div key={`${cit.document_id}-${cit.chunk_index}`} className="mix-card" style={{ marginBottom: 8, padding: 10 }}>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <strong style={{ color: "var(--color-status-info)" }}>[{i + 1}] {cit.document_name}</strong>
                         <span style={{ color: "var(--color-text-muted)", fontSize: 12 }}>

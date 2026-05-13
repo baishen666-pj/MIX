@@ -1,7 +1,13 @@
-import { useState, useCallback, useEffect } from "react";
-import type { Tab, MemoryEntry, Skill } from "./types";
+import { useCallback, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router";
+import type { Tab, Skill } from "./types";
+import type { MemoryEntry } from "./types";
+import { useStore } from "./store";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useApi, usePostApi } from "./hooks/useApi";
+import { SkillsSchema, HealthSchema } from "./schemas/api";
+import { useLocale } from "./i18n";
+import type { TranslationKey } from "./i18n/en";
 import { ChatView } from "./components/ChatView";
 import { SkillsView } from "./components/SkillsView";
 import { MemoryView } from "./components/MemoryView";
@@ -15,43 +21,56 @@ import { ConversationSidebar } from "./components/ConversationSidebar";
 import { ErrorBanner } from "./components/ErrorBanner";
 import { s } from "./styles";
 
+const VALID_TABS: Tab[] = ["chat", "skills", "memory", "dashboard", "agents", "tools", "knowledge", "settings"];
+
 const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/chat`;
 
-function getInitialTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "dark";
-  const stored = localStorage.getItem("mix-theme");
-  if (stored === "light" || stored === "dark") return stored;
-  return "dark";
+function isValidTab(value: string): value is Tab {
+  return VALID_TABS.includes(value as Tab);
 }
 
 export function App() {
-  const [tab, setTab] = useState<Tab>("chat");
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [thinking, setThinking] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme);
-  const [currentSessionId, setCurrentSessionId] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
 
+  const {
+    theme, setTheme,
+    locale, setLocale: setStoreLocale,
+    thinking, setThinking,
+    apiError, setApiError,
+    memories, setMemories,
+  } = useStore();
+
+  const { t, setLocale: setI18nLocale } = useLocale();
+
+  // Derive tab from URL, default to "chat"
+  const pathTab = location.pathname.slice(1) || "chat";
+  const tab: Tab = isValidTab(pathTab) ? pathTab : "chat";
+
+  // Sync locale between store and i18n context
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("mix-theme", theme);
-  }, [theme]);
+    setI18nLocale(locale as "en" | "zh");
+  }, [locale, setI18nLocale]);
+
+  const handleTabSwitch = useCallback((tabKey: Tab) => {
+    navigate("/" + tabKey);
+  }, [navigate]);
 
   const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  }, []);
+    setTheme(theme === "dark" ? "light" : "dark");
+  }, [theme, setTheme]);
+
+  const handleLocaleToggle = useCallback(() => {
+    const next = locale === "en" ? "zh" : "en";
+    setStoreLocale(next);
+    setI18nLocale(next);
+  }, [locale, setStoreLocale, setI18nLocale]);
 
   const { messages, connected, send, sessionId, loadHistory, clearMessages, ttfb } = useWebSocket(WS_URL);
 
-  useEffect(() => {
-    if (sessionId && sessionId !== currentSessionId) {
-      setCurrentSessionId(sessionId);
-    }
-  }, [sessionId, currentSessionId]);
+  const { data: skillsData, loading: skillsLoading, error: skillsError } = useApi("/api/skills", SkillsSchema);
+  const { data: healthData, loading: healthLoading, error: healthError } = useApi("/api/health", HealthSchema);
 
-  const { data: skillsData, loading: skillsLoading, error: skillsError } = useApi<{ skills: Skill[] }>("/api/skills");
-  const { data: healthData, loading: healthLoading, error: healthError } = useApi<Record<string, unknown>>("/api/health");
-
-  const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const { loading: searchLoading, error: searchError, post: searchMemories } = usePostApi<MemoryEntry[]>();
 
   const handleSearch = useCallback(async (query: string) => {
@@ -59,12 +78,12 @@ export function App() {
     const result = await searchMemories("/api/memory/search", { query, limit: 20 });
     setThinking(false);
     if (result) setMemories(Array.isArray(result) ? result : []);
-  }, [searchMemories]);
+  }, [searchMemories, setThinking, setMemories]);
 
   const handleSend = useCallback((text: string) => {
     setThinking(true);
     send(text);
-  }, [send]);
+  }, [send, setThinking]);
 
   useEffect(() => {
     if (!thinking) return;
@@ -72,52 +91,65 @@ export function App() {
     if (last && !last.streaming) {
       setThinking(false);
     }
-  }, [messages, thinking]);
+  }, [messages, thinking, setThinking]);
 
   const handleNewSession = useCallback(() => {
-    setCurrentSessionId("");
     clearMessages();
   }, [clearMessages]);
 
-  const skills = skillsData?.skills ?? [];
+  const handleSelectSession = useCallback((id: string) => {
+    loadHistory(id);
+  }, [loadHistory]);
 
-  const tabLabel = (t: Tab) => {
-    const labels: Record<Tab, string> = {
-      chat: "\u{1F4AC} Chat",
-      skills: "\u{2699}\u{FE0F} Skills",
-      memory: "\u{1F9E0} Memory",
-      dashboard: "\u{1F4CA} Dashboard",
-      agents: "\u{1F916} Agents",
-      tools: "\u{1F527} Tools",
-      knowledge: "\u{1F4DA} Knowledge",
-      settings: "\u{2699}\u{FE0F} Settings",
+  const skills = (skillsData?.skills ?? []) as Skill[];
+
+  const tabLabel = (tabKey: Tab) => {
+    const icons: Record<Tab, string> = {
+      chat: "\u{1F4AC}",
+      skills: "\u{2699}\u{FE0F}",
+      memory: "\u{1F9E0}",
+      dashboard: "\u{1F4CA}",
+      agents: "\u{1F916}",
+      tools: "\u{1F527}",
+      knowledge: "\u{1F4DA}",
+      settings: "\u{2699}\u{FE0F}",
     };
-    return labels[t] || t;
+    const keys: Record<Tab, TranslationKey> = {
+      chat: "tab.chat",
+      skills: "tab.skills",
+      memory: "tab.memory",
+      dashboard: "tab.dashboard",
+      agents: "tab.agents",
+      tools: "tab.tools",
+      knowledge: "tab.knowledge",
+      settings: "tab.settings",
+    };
+    return `${icons[tabKey]} ${t(keys[tabKey])}`;
   };
 
   return (
     <div style={s.sidebarWrapper}>
       <ConversationSidebar
-        currentSessionId={currentSessionId}
-        onSelectSession={(id) => {
-          setCurrentSessionId(id);
-          loadHistory(id);
-        }}
+        currentSessionId={sessionId}
+        onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}
       />
-      <div style={s.container}>
-        <header style={s.header}>
+      <div className="mix-container">
+        <header className="mix-header">
           <h1 style={s.title}>MIX</h1>
           <nav style={s.nav} role="tablist" aria-label="Main navigation">
-            {(["chat", "skills", "memory", "dashboard", "agents", "tools", "knowledge", "settings"] as Tab[]).map((t) => (
-              <button key={t} onClick={() => setTab(t)} style={tab === t ? s.navActive : s.navBtn} role="tab" aria-selected={tab === t}>
-                {tabLabel(t)}
+            {VALID_TABS.map((tabKey) => (
+              <button key={tabKey} onClick={() => handleTabSwitch(tabKey)} style={tab === tabKey ? s.navActive : s.navBtn} role="tab" aria-selected={tab === tabKey}>
+                {tabLabel(tabKey)}
               </button>
             ))}
           </nav>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {ttfb !== null && <span style={s.status}>{ttfb}ms</span>}
-            <span style={connected ? s.status : s.statusError}>{connected ? "on" : "off"}</span>
+            <span style={connected ? s.status : s.statusError}>{connected ? t("status.on") : t("status.off")}</span>
+            <button onClick={handleLocaleToggle} style={themeBtnStyle} aria-label="Toggle language">
+              {locale === "en" ? "中" : "EN"}
+            </button>
             <button onClick={toggleTheme} style={themeBtnStyle} aria-label="Toggle theme">
               {theme === "dark" ? "☀" : "☾"}
             </button>

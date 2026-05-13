@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { type ZodType } from "zod";
 
 interface UseApiResult<T> {
   data: T | null;
@@ -7,7 +8,7 @@ interface UseApiResult<T> {
   refetch: () => void;
 }
 
-export function useApi<T>(url: string | null, options?: RequestInit): UseApiResult<T> {
+export function useApi<T>(url: string | null, schema?: ZodType<T>, options?: RequestInit): UseApiResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +20,16 @@ export function useApi<T>(url: string | null, options?: RequestInit): UseApiResu
     try {
       const res = await fetch(url, options);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      setData(json);
+      const raw: unknown = await res.json();
+      if (schema) {
+        const result = schema.safeParse(raw);
+        if (!result.success) {
+          console.warn(`Validation failed for ${url}:`, result.error.flatten());
+        }
+        setData((result.success ? result.data : raw) as T);
+      } else {
+        setData(raw as T);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
     } finally {
@@ -40,7 +49,7 @@ export function usePostApi<T>() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const post = useCallback(async (url: string, body: unknown) => {
+  const post = useCallback(async (url: string, body: unknown, schema?: ZodType<T>): Promise<T | null> => {
     setLoading(true);
     setError(null);
     try {
@@ -50,9 +59,17 @@ export function usePostApi<T>() {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      setData(json);
-      return json;
+      const raw: unknown = await res.json();
+      if (schema) {
+        const result = schema.safeParse(raw);
+        if (!result.success) {
+          console.warn(`Validation failed for POST ${url}:`, result.error.flatten());
+        }
+        setData((result.success ? result.data : raw) as T);
+        return (result.success ? result.data : raw) as T;
+      }
+      setData(raw as T);
+      return raw as T;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Request failed";
       setError(msg);

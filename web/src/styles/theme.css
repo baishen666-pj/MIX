@@ -1,3 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-surface-hover: var(--color-surface-hover);
+  --color-surface-alt: var(--color-surface-alt);
+  --color-text: var(--color-text);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-text: var(--color-accent-text);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --color-border: var(--color-border);
+  --color-border-subtle: var(--color-border-subtle);
+}
+
 /* ===== MIX Web UI Theme System ===== */
 
 /* --- Keyframe Animations --- */
@@ -205,6 +226,78 @@
     --space-lg: 10px;
     --font-size-lg: 16px;
   }
+}
+
+/* --- Common Layout Utilities --- */
+.mix-container {
+  @apply max-w-[800px] mx-auto h-screen flex flex-col;
+  font-family: var(--font-family);
+  background: var(--color-bg);
+  color: var(--color-text);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.mix-header {
+  @apply flex items-center justify-between;
+  padding: 10px var(--space-xl);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mix-panel {
+  @apply flex-1 overflow-y-auto;
+  padding: var(--space-xl);
+}
+
+.mix-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  @apply p-3.5 mb-2.5;
+}
+
+.mix-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  @apply px-3.5 py-1.5 text-sm cursor-pointer;
+  color: var(--color-text);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.mix-btn:hover {
+  background: var(--color-surface-hover);
+}
+
+.mix-btn-accent {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border: none;
+  border-radius: var(--radius-lg);
+  @apply px-5 py-2.5 text-sm font-semibold cursor-pointer;
+  transition: background var(--transition-fast);
+}
+
+.mix-input {
+  @apply flex-1 outline-none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.mix-badge {
+  @apply text-xs px-2 py-0.5 rounded;
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+}
+
+.mix-error {
+  color: var(--color-error-text);
+  @apply text-sm p-3 rounded-lg mb-3;
+  background: var(--color-error-bg);
+  border-radius: var(--radius-lg);
 }
 
 /* --- Markdown Body --- */
