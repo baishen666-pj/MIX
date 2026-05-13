@@ -1,0 +1,47 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mix-gateway-hpa
+  namespace: mix-system
+  labels:
+    app.kubernetes.io/name: mix-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: mix-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mix-gateway
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mix-engine-hpa
+  namespace: mix-system
+  labels:
+    app.kubernetes.io/name: mix-engine
+    app.kubernetes.io/component: engine
+    app.kubernetes.io/part-of: mix-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mix-engine
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80

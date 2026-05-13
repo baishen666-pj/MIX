@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mix-ingress
+  namespace: mix-system
+  labels:
+    app.kubernetes.io/name: mix
+    app.kubernetes.io/part-of: mix-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/websocket-services: mix-gateway
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mix-gateway
+                port:
+                  number: 18789
+          - path: /ws(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mix-gateway
+                port:
+                  number: 18789
+          - path: /metrics(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mix-gateway
+                port:
+                  number: 18789
+          - path: /(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mix-web
+                port:
+                  number: 80

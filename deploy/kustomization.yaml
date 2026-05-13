@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mix-system
+
+commonLabels:
+  app.kubernetes.io/part-of: mix-platform
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - engine/service.yaml
+  - engine/deployment.yaml
+  - gateway/service.yaml
+  - gateway/deployment.yaml
+  - web/service.yaml
+  - web/deployment.yaml
+  - ingress.yaml
+  - hpa.yaml

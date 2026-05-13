@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mix-config
+  namespace: mix-system
+  labels:
+    app.kubernetes.io/name: mix
+    app.kubernetes.io/part-of: mix-platform
+data:
+  MIX_ENGINE_HOST: "mix-engine.mix-system.svc.cluster.local"
+  MIX_ENGINE_PORT: "18700"
+  MIX_GATEWAY_HOST: "0.0.0.0"
+  MIX_GATEWAY_PORT: "18789"
+  MIX_ENGINE_BIND_HOST: "0.0.0.0"
+  MIX_LLM_PROVIDER: "openrouter"
+  MIX_LLM_MODEL: "openai/gpt-4o"
+  CORS_ORIGINS: "http://localhost:8080,http://localhost:18789"
+  LOG_LEVEL: "INFO"
+  DM_POLICY: "pairing"

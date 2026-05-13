@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mix-system
+  labels:
+    app.kubernetes.io/name: mix
+    app.kubernetes.io/part-of: mix-platform

@@ -100,12 +100,12 @@ async def config_get():
 
 @router.put("/config")
 async def config_update(req: dict):
+    global _config
     if _config is None:
         raise HTTPException(503, "Config not initialized")
     from engine.config import MixConfig
     updated = MixConfig._from_dict(req)
     updated.save()
-    global _config
     _config = updated
     return {"status": "ok"}
 

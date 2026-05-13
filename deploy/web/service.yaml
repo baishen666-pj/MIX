@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mix-web
+  namespace: mix-system
+  labels:
+    app.kubernetes.io/name: mix-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: mix-platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: mix-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
