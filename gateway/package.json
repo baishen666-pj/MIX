@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "bundle": "node scripts/bundle.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "esbuild": "^0.25.12",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^4.1.6"

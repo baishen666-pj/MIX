@@ -1,4 +1,4 @@
-.PHONY: install dev engine gateway test test-engine test-gateway test-web clean setup docker-up docker-down docker-build docker-logs
+.PHONY: install dev engine gateway test test-engine test-gateway test-web clean setup docker-up docker-down docker-build docker-logs desktop
 
 PYTHON ?= python3
 NODE ?= node
@@ -62,3 +62,6 @@ docker-logs:
 
 docker-restart:
 	$(DOCKER) compose restart
+
+desktop:
+	bash scripts/build-desktop.sh

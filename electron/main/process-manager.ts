@@ -16,7 +16,8 @@ interface ManagedProcess {
 
 function getEngineCommand(): { cmd: string; args: string[] } {
   if (app.isPackaged) {
-    const engineExe = join(process.resourcesPath, "engine", "mix-engine");
+    const ext = process.platform === "win32" ? ".exe" : "";
+    const engineExe = join(process.resourcesPath, "engine", `mix-engine${ext}`);
     return { cmd: engineExe, args: [] };
   }
   const python = process.platform === "win32" ? "python" : "python3";
@@ -36,8 +37,8 @@ function getGatewayCommand(): { cmd: string; args: string[]; cwd: string } {
   const nodeBin = process.platform === "win32" ? "node.exe" : "node";
 
   if (app.isPackaged) {
-    const gatewayScript = join(process.resourcesPath, "gateway", "index.js");
-    return { cmd: nodeBin, args: [gatewayScript], cwd: rootDir };
+    const gatewayScript = join(process.resourcesPath, "gateway", "index.cjs");
+    return { cmd: nodeBin, args: [gatewayScript], cwd: process.resourcesPath };
   }
   const gatewayScript = join(rootDir, "gateway", "dist", "index.js");
   return { cmd: nodeBin, args: [gatewayScript], cwd: join(rootDir, "gateway") };

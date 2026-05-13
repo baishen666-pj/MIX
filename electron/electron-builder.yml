@@ -10,6 +10,17 @@ files:
   - "!{tsconfig.json,eslint.config.*,README.md}"
 asarUnpack:
   - "**/*.node"
+extraResources:
+  - from: ../dist/mix-engine
+    to: engine
+    filter:
+      - "**/*"
+  - from: ../gateway/bundle
+    to: gateway
+    filter:
+      - "**/*"
+  - from: resources/splash.html
+    to: splash.html
 win:
   executableName: mix-agent
   target:
