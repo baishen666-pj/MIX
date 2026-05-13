@@ -1,5 +1,7 @@
 import { ChildProcess, spawn } from "child_process";
 import { join } from "path";
+import { existsSync } from "fs";
+import { app } from "electron";
 import http from "http";
 
 const ENGINE_PORT = 18700;
@@ -10,6 +12,35 @@ interface ManagedProcess {
   process: ChildProcess | null;
   port: number;
   ready: boolean;
+}
+
+function getEngineCommand(): { cmd: string; args: string[] } {
+  if (app.isPackaged) {
+    const engineExe = join(process.resourcesPath, "engine", "mix-engine");
+    return { cmd: engineExe, args: [] };
+  }
+  const python = process.platform === "win32" ? "python" : "python3";
+  const rootDir = join(__dirname, "..", "..", "..");
+  return {
+    cmd: python,
+    args: [
+      "-m", "uvicorn", "engine.main:app",
+      "--host", "127.0.0.1",
+      "--port", String(ENGINE_PORT),
+    ],
+  };
+}
+
+function getGatewayCommand(): { cmd: string; args: string[]; cwd: string } {
+  const rootDir = join(__dirname, "..", "..", "..");
+  const nodeBin = process.platform === "win32" ? "node.exe" : "node";
+
+  if (app.isPackaged) {
+    const gatewayScript = join(process.resourcesPath, "gateway", "index.js");
+    return { cmd: nodeBin, args: [gatewayScript], cwd: rootDir };
+  }
+  const gatewayScript = join(rootDir, "gateway", "dist", "index.js");
+  return { cmd: nodeBin, args: [gatewayScript], cwd: join(rootDir, "gateway") };
 }
 
 export class ProcessManager {
@@ -59,11 +90,9 @@ export class ProcessManager {
 
   private startEngine(): Promise<void> {
     const rootDir = join(__dirname, "..", "..", "..");
-    const engineDir = join(rootDir, "engine");
-    const python = process.platform === "win32" ? "python" : "python3";
+    const { cmd, args } = getEngineCommand();
 
-    this.engine.process = spawn(python, [
-      "-m", "uvicorn", "engine.main:app",
+    this.engine.process = spawn(cmd, args.length ? args : [
       "--host", "127.0.0.1",
       "--port", String(ENGINE_PORT),
     ], {
@@ -100,11 +129,7 @@ export class ProcessManager {
   }
 
   private startGateway(): Promise<void> {
-    const rootDir = join(__dirname, "..", "..", "..");
-    const gatewayDir = join(rootDir, "gateway");
-    const nodeBin = process.platform === "win32" ? "node.exe" : "node";
-
-    const gatewayScript = join(gatewayDir, "dist", "index.js");
+    const { cmd, args, cwd } = getGatewayCommand();
     const env: Record<string, string> = {
       ...process.env as Record<string, string>,
       MIX_ENGINE_HOST: "127.0.0.1",
@@ -114,8 +139,8 @@ export class ProcessManager {
       NODE_ENV: "production",
     };
 
-    this.gateway.process = spawn(nodeBin, [gatewayScript], {
-      cwd: gatewayDir,
+    this.gateway.process = spawn(cmd, args, {
+      cwd,
       env,
       stdio: "pipe",
     });
@@ -166,7 +191,7 @@ export class ProcessManager {
   private healthCheck(port: number): Promise<boolean> {
     return new Promise((resolve) => {
       const req = http.request(
-        `http://127.0.0.1:${port}/health`,
+        `http://127.0.0.1:${port}/api/health`,
         { method: "GET", timeout: 2000 },
         (res) => {
           resolve(res.statusCode === 200);

@@ -1,5 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } from "electron";
+import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, dialog } from "electron";
 import { join } from "path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { homedir } from "os";
 import { electronApp, is } from "@electron-toolkit/utils";
 import { ProcessManager } from "./process-manager";
 
@@ -104,6 +106,9 @@ function setupTray(): void {
 }
 
 function setupIPC(): void {
+  const { dialog: dlg } = require("electron") as { dialog: typeof dialog };
+
+  // Versions
   ipcMain.handle("get-versions", () => ({
     app: app.getVersion(),
     electron: process.versions.electron,
@@ -111,13 +116,63 @@ function setupIPC(): void {
     node: process.versions.node,
   }));
 
+  // External links
   ipcMain.handle("open-external", (_event, url: string) => {
     shell.openExternal(url);
   });
 
+  // File dialogs
   ipcMain.handle("show-save-dialog", async (_event, opts: Electron.SaveDialogOptions) => {
-    return await require("electron").dialog.showSaveDialog(opts);
+    return await dlg.showSaveDialog(mainWindow!, opts);
   });
+
+  ipcMain.handle("show-open-dialog", async (_event, opts: Electron.OpenDialogOptions) => {
+    return await dlg.showOpenDialog(mainWindow!, opts);
+  });
+
+  // Message box
+  ipcMain.handle("show-message-box", async (_event, opts: Electron.MessageBoxOptions) => {
+    return await dlg.showMessageBox(mainWindow!, opts);
+  });
+
+  // Config file management
+  const configPath = join(homedir(), ".mix", "config.json");
+
+  ipcMain.handle("read-local-config", () => {
+    try {
+      if (!existsSync(configPath)) return null;
+      return JSON.parse(readFileSync(configPath, "utf-8"));
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle("write-local-config", (_event, config: Record<string, unknown>) => {
+    try {
+      const dir = join(homedir(), ".mix");
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle("get-config-path", () => configPath);
+  ipcMain.handle("get-mix-home", () => join(homedir(), ".mix"));
+
+  // Process control
+  ipcMain.handle("restart-services", async () => {
+    processManager.stopAll();
+    try {
+      await processManager.startAll();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle("is-services-ready", () => processManager.isReady());
 }
 
 function forwardStatusToRenderer(): void {
