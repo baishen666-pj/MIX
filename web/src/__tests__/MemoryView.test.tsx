@@ -5,12 +5,12 @@ import type { MemoryEntry } from "../types";
 
 describe("MemoryView", () => {
   it("shows loading state", () => {
-    render(<MemoryView memories={[]} loading={true} error={null} onSearch={vi.fn()} />);
+    render(<MemoryView memories={[]} loading={true} error={null} onSearch={vi.fn()} onRefresh={vi.fn()} />);
     expect(screen.getByText("Searching...")).toBeInTheDocument();
   });
 
   it("shows error message", () => {
-    render(<MemoryView memories={[]} loading={false} error="Search failed" onSearch={vi.fn()} />);
+    render(<MemoryView memories={[]} loading={false} error="Search failed" onSearch={vi.fn()} onRefresh={vi.fn()} />);
     expect(screen.getByText("Search failed")).toBeInTheDocument();
   });
 
@@ -24,7 +24,7 @@ describe("MemoryView", () => {
         created_at: "2026-01-15T10:00:00Z",
       },
     ];
-    render(<MemoryView memories={memories} loading={false} error={null} onSearch={vi.fn()} />);
+    render(<MemoryView memories={memories} loading={false} error={null} onSearch={vi.fn()} onRefresh={vi.fn()} />);
 
     expect(screen.getByText("fact")).toBeInTheDocument();
     expect(screen.getByText(/User prefers dark mode/)).toBeInTheDocument();
@@ -33,7 +33,7 @@ describe("MemoryView", () => {
 
   it("calls onSearch when search button is clicked", () => {
     const onSearch = vi.fn();
-    render(<MemoryView memories={[]} loading={false} error={null} onSearch={onSearch} />);
+    render(<MemoryView memories={[]} loading={false} error={null} onSearch={onSearch} onRefresh={vi.fn()} />);
 
     const input = screen.getByPlaceholderText("Search memories...");
     fireEvent.change(input, { target: { value: "dark mode" } });
@@ -44,7 +44,7 @@ describe("MemoryView", () => {
 
   it("calls onSearch on Enter key", () => {
     const onSearch = vi.fn();
-    render(<MemoryView memories={[]} loading={false} error={null} onSearch={onSearch} />);
+    render(<MemoryView memories={[]} loading={false} error={null} onSearch={onSearch} onRefresh={vi.fn()} />);
 
     const input = screen.getByPlaceholderText("Search memories...");
     fireEvent.change(input, { target: { value: "test query" } });
@@ -55,7 +55,7 @@ describe("MemoryView", () => {
 
   it("does not search with empty query", () => {
     const onSearch = vi.fn();
-    render(<MemoryView memories={[]} loading={false} error={null} onSearch={onSearch} />);
+    render(<MemoryView memories={[]} loading={false} error={null} onSearch={onSearch} onRefresh={vi.fn()} />);
 
     fireEvent.click(screen.getByText("Search"));
     expect(onSearch).not.toHaveBeenCalled();
@@ -66,7 +66,7 @@ describe("MemoryView", () => {
       { id: "m1", type: "fact", content: "fact 1", tags: [], created_at: "2026-01-01T00:00:00Z" },
       { id: "m2", type: "preference", content: "pref 1", tags: [], created_at: "2026-01-01T00:00:00Z" },
     ];
-    render(<MemoryView memories={memories} loading={false} error={null} onSearch={vi.fn()} />);
+    render(<MemoryView memories={memories} loading={false} error={null} onSearch={vi.fn()} onRefresh={vi.fn()} />);
 
     // Both visible initially
     expect(screen.getByText("fact 1")).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe("MemoryView", () => {
       tags: [],
       created_at: "2026-01-01T00:00:00Z",
     }));
-    render(<MemoryView memories={memories} loading={false} error={null} onSearch={vi.fn()} />);
+    render(<MemoryView memories={memories} loading={false} error={null} onSearch={vi.fn()} onRefresh={vi.fn()} />);
 
     expect(screen.getByText(/Load more.*5 remaining/)).toBeInTheDocument();
   });

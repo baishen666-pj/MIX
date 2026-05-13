@@ -46,6 +46,7 @@ _api_key: str = ""
 _decomposer: Any = None
 _orchestrator: Any = None
 _metrics: MetricsCollector | None = None
+_config: Any = None
 
 
 def init_routes(
@@ -60,8 +61,9 @@ def init_routes(
     decomposer: Any = None,
     orchestrator: Any = None,
     metrics: MetricsCollector | None = None,
+    config: Any = None,
 ) -> None:
-    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp, _api_key, _decomposer, _orchestrator, _metrics
+    global _agent_loop, _memory, _skill_registry, _skill_loader, _learning, _cron, _tools, _agent_router, _mcp, _api_key, _decomposer, _orchestrator, _metrics, _config
     _agent_loop = agent_loop
     _memory = memory
     _skill_registry = skill_registry
@@ -75,6 +77,7 @@ def init_routes(
     _decomposer = decomposer
     _orchestrator = orchestrator
     _metrics = metrics
+    _config = config
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -84,6 +87,27 @@ async def health():
         version="0.1.0",
         engine="mix-python",
     )
+
+
+# --- Config ---
+
+@router.get("/config")
+async def config_get():
+    if _config is None:
+        return {"error": "Config not initialized"}
+    return _config._to_dict()
+
+
+@router.put("/config")
+async def config_update(req: dict):
+    if _config is None:
+        raise HTTPException(503, "Config not initialized")
+    from engine.config import MixConfig
+    updated = MixConfig._from_dict(req)
+    updated.save()
+    global _config
+    _config = updated
+    return {"status": "ok"}
 
 
 @router.get("/metrics")

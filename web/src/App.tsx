@@ -45,7 +45,7 @@ export function App() {
     }
   }, [sessionId, currentSessionId]);
 
-  const { data: skillsData, loading: skillsLoading, error: skillsError } = useApi<Skill[]>("/api/skills");
+  const { data: skillsData, loading: skillsLoading, error: skillsError } = useApi<{ skills: Skill[] }>("/api/skills");
   const { data: healthData, loading: healthLoading, error: healthError } = useApi<Record<string, unknown>>("/api/health");
 
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
@@ -76,7 +76,7 @@ export function App() {
     window.location.reload();
   }, []);
 
-  const skills = skillsData?.skills ?? (skillsData as unknown as Skill[]) ?? [];
+  const skills = skillsData?.skills ?? [];
 
   return (
     <div style={s.sidebarWrapper}>

@@ -64,11 +64,11 @@ describe("SettingsView", () => {
     expect(screen.getByText("mix-python")).toBeInTheDocument();
   });
 
-  it("renders raw JSON response", () => {
-    const health = { status: "ok", gateway: "mix-gateway" };
+  it("renders engine section when engine info present", () => {
+    const health = { status: "ok", engine: { version: "0.1.0", gateway: "mix-gateway" } };
     render(
       <SettingsView health={health} loading={false} error={null} />
     );
-    expect(screen.getByText(/mix-gateway/)).toBeInTheDocument();
+    expect(screen.getByText("mix-gateway")).toBeInTheDocument();
   });
 });

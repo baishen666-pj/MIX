@@ -50,7 +50,7 @@ export function useWebSocket(url: string) {
   const [connected, setConnected] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sseFallback = useRef(false);
   const wsFailCount = useRef(0);
 

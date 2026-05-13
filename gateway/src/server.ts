@@ -260,6 +260,33 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
+  // --- Config ---
+
+  app.get("/api/config", async (_request, reply) => {
+    try {
+      const res = await bridge.proxyGet("/api/config");
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
+  app.put("/api/config", async (request, reply) => {
+    try {
+      const body = request.body as Record<string, unknown>;
+      const res = await fetch(`${bridge["baseUrl"]}/api/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return res.json();
+    } catch (err) {
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+
   // --- API Docs (proxy to engine OpenAPI/Swagger) ---
 
   app.get("/api/docs", async (_request, reply) => {

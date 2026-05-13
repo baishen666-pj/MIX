@@ -37,6 +37,7 @@ export interface StreamChunk {
   delta: string;
   done: boolean;
   type?: string;
+  error?: string;
   tool_call?: { function: { name: string; arguments: string } };
   tool_call_id?: string;
   name?: string;
