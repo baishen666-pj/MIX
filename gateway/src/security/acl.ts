@@ -37,7 +37,14 @@ export class DmPairing {
     return allowed?.has(userId) ?? false;
   }
 
+  canPair(_channel: string, _userId: string): boolean {
+    return this.config.policy === "pairing";
+  }
+
   generatePairingCode(channel: string, userId: string): string {
+    if (this.pendingRequests.size > 500) {
+      this.cleanupExpiredPairings();
+    }
     const code = randomBytes(4).toString("hex").toUpperCase().substring(0, 6);
     const key = `${channel}:${userId}`;
     this.pendingRequests.set(key, {
@@ -64,6 +71,7 @@ export class DmPairing {
   }
 
   getPendingPairings(): PairingRequest[] {
+    this.cleanupExpiredPairings();
     const now = Date.now();
     const active: PairingRequest[] = [];
     for (const [, req] of this.pendingRequests) {
@@ -72,5 +80,14 @@ export class DmPairing {
       }
     }
     return active;
+  }
+
+  private cleanupExpiredPairings(): void {
+    const now = Date.now();
+    for (const [key, req] of this.pendingRequests) {
+      if (req.expiresAt < now) {
+        this.pendingRequests.delete(key);
+      }
+    }
   }
 }

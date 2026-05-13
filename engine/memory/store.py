@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-import aiosqlite
+import json
+import logging
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
-from engine.memory.types import MemoryEntry, MemoryType
+import aiosqlite
+
 from engine.memory.embeddings import EmbeddingService
+from engine.memory.types import MemoryEntry, MemoryType
+
+log = logging.getLogger("mix.memory")
 
 _COMMIT_BATCH_SIZE = 10
 _CACHE_MAX = 100
@@ -77,11 +83,19 @@ class MemoryStore:
             await self._db.close()
             self._db = None
 
+    async def __aenter__(self) -> "MemoryStore":
+        await self.connect()
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self.close()
+
     async def store(self, entry: MemoryEntry) -> None:
-        assert self._db is not None
-        import json
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
         await self._db.execute(
-            "INSERT INTO memories (id, type, content, tags, source, session_id, created_at, accessed_at, access_count, importance) "
+            "INSERT INTO memories "
+            "(id, type, content, tags, source, session_id, created_at, accessed_at, access_count, importance) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 entry.id,
@@ -107,14 +121,15 @@ class MemoryStore:
                     (entry.id, blob),
                 )
             except Exception:
-                pass
+                log.exception("Failed to store embedding for memory %s", entry.id)
         if self._pending_writes >= _COMMIT_BATCH_SIZE:
             await self._db.commit()
             self._pending_writes = 0
 
     async def search(self, query: str, limit: int = 10) -> list[MemoryEntry]:
         if self._pending_writes > 0:
-            assert self._db is not None
+            if self._db is None:
+                raise RuntimeError("MemoryStore is not connected. Call connect() first.")
             await self._db.commit()
             self._pending_writes = 0
 
@@ -124,10 +139,23 @@ class MemoryStore:
         if cached and now - cached[0] < _CACHE_TTL:
             return cached[1]
 
-        assert self._db is not None
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
 
-        # FTS5 keyword search
-        fts_results: list[MemoryEntry] = []
+        fts_results = await self._fts_search(query, limit)
+        vec_results = await self._vector_search(query, limit)
+        results = self._reciprocal_rank_fusion(fts_results, vec_results, limit)
+
+        if len(self._search_cache) >= _CACHE_MAX:
+            oldest = min(self._search_cache, key=lambda k: self._search_cache[k][0])
+            del self._search_cache[oldest]
+        self._search_cache[cache_key] = (now, results)
+        return results
+
+    async def _fts_search(self, query: str, limit: int) -> list[MemoryEntry]:
+        """Full-text search using FTS5."""
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
         try:
             cursor = await self._db.execute(
                 "SELECT m.* FROM memories m "
@@ -138,64 +166,65 @@ class MemoryStore:
                 (query, limit),
             )
             rows = await cursor.fetchall()
-            fts_results = [self._row_to_entry(row) for row in rows]
+            return [self._row_to_entry(row) for row in rows]
         except Exception:
-            pass
+            log.warning("FTS5 search failed for query: %r", query, exc_info=True)
+            return []
 
-        # Vector semantic search (if embeddings available)
-        vec_results: list[MemoryEntry] = []
-        if self._embeddings:
-            try:
-                query_vec = self._embeddings.encode(query)
-                vec_cursor = await self._db.execute(
-                    "SELECT mv.memory_id, mv.embedding FROM memory_vectors mv"
-                )
-                vec_rows = await vec_cursor.fetchall()
-                scored: list[tuple[float, str]] = []
-                for row in vec_rows:
-                    mem_id = row[0]
-                    stored_vec = EmbeddingService.deserialize_vector(row[1])
-                    sim = EmbeddingService.cosine_similarity(query_vec, stored_vec)
-                    scored.append((sim, mem_id))
-                scored.sort(key=lambda x: x[0], reverse=True)
-                top_ids = [sid for _, sid in scored[:limit]]
-                if top_ids:
-                    placeholders = ",".join("?" for _ in top_ids)
-                    entry_cursor = await self._db.execute(
-                        f"SELECT * FROM memories WHERE id IN ({placeholders})", top_ids
-                    )
-                    entry_rows = await entry_cursor.fetchall()
-                    vec_results = [self._row_to_entry(r) for r in entry_rows]
-                    id_to_entry = {e.id: e for e in vec_results}
-                    vec_results = [id_to_entry[sid] for sid in top_ids if sid in id_to_entry]
-            except Exception:
-                pass
+    async def _vector_search(self, query: str, limit: int) -> list[MemoryEntry]:
+        """Semantic search using vector embeddings."""
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
+        if not self._embeddings:
+            return []
+        try:
+            query_vec = self._embeddings.encode(query)
+            vec_cursor = await self._db.execute("SELECT mv.memory_id, mv.embedding FROM memory_vectors mv")
+            vec_rows = await vec_cursor.fetchall()
+            scored: list[tuple[float, str]] = []
+            for row in vec_rows:
+                mem_id = row[0]
+                stored_vec = EmbeddingService.deserialize_vector(row[1])
+                sim = EmbeddingService.cosine_similarity(query_vec, stored_vec)
+                scored.append((sim, mem_id))
+            scored.sort(key=lambda x: x[0], reverse=True)
+            top_ids = [sid for _, sid in scored[:limit]]
+            if not top_ids:
+                return []
+            placeholders = ",".join("?" for _ in top_ids)
+            entry_cursor = await self._db.execute(f"SELECT * FROM memories WHERE id IN ({placeholders})", top_ids)
+            entry_rows = await entry_cursor.fetchall()
+            vec_results = [self._row_to_entry(r) for r in entry_rows]
+            id_to_entry = {e.id: e for e in vec_results}
+            return [id_to_entry[sid] for sid in top_ids if sid in id_to_entry]
+        except Exception:
+            log.warning("Vector search failed for query: %r", query, exc_info=True)
+            return []
 
-        # Reciprocal Rank Fusion
+    @staticmethod
+    def _reciprocal_rank_fusion(
+        fts_results: list[MemoryEntry],
+        vec_results: list[MemoryEntry],
+        limit: int,
+    ) -> list[MemoryEntry]:
+        """Merge FTS and vector results using Reciprocal Rank Fusion."""
         if not fts_results and not vec_results:
-            results: list[MemoryEntry] = []
-        elif fts_results and not vec_results:
-            results = fts_results[:limit]
-        elif vec_results and not fts_results:
-            results = vec_results[:limit]
-        else:
-            k = 60
-            scores: dict[str, float] = {}
-            entry_map: dict[str, MemoryEntry] = {}
-            for rank, entry in enumerate(fts_results):
-                scores[entry.id] = scores.get(entry.id, 0) + 1 / (k + rank + 1)
-                entry_map[entry.id] = entry
-            for rank, entry in enumerate(vec_results):
-                scores[entry.id] = scores.get(entry.id, 0) + 1 / (k + rank + 1)
-                entry_map[entry.id] = entry
-            sorted_ids = sorted(scores, key=scores.get, reverse=True)[:limit]  # type: ignore[arg-type]
-            results = [entry_map[mid] for mid in sorted_ids]
-
-        if len(self._search_cache) >= _CACHE_MAX:
-            oldest = min(self._search_cache, key=lambda k: self._search_cache[k][0])
-            del self._search_cache[oldest]
-        self._search_cache[cache_key] = (now, results)
-        return results
+            return []
+        if fts_results and not vec_results:
+            return fts_results[:limit]
+        if vec_results and not fts_results:
+            return vec_results[:limit]
+        k = 60
+        scores: dict[str, float] = {}
+        entry_map: dict[str, MemoryEntry] = {}
+        for rank, entry in enumerate(fts_results):
+            scores[entry.id] = scores.get(entry.id, 0) + 1 / (k + rank + 1)
+            entry_map[entry.id] = entry
+        for rank, entry in enumerate(vec_results):
+            scores[entry.id] = scores.get(entry.id, 0) + 1 / (k + rank + 1)
+            entry_map[entry.id] = entry
+        sorted_ids = sorted(scores, key=scores.get, reverse=True)[:limit]  # type: ignore[arg-type]
+        return [entry_map[mid] for mid in sorted_ids]
 
     async def ingest_document(self, text: str, chunk_size: int = 500, source: str = "") -> list[str]:
         overlap = 50
@@ -220,13 +249,12 @@ class MemoryStore:
         return ids
 
     async def get(self, entry_id: str) -> MemoryEntry | None:
-        assert self._db is not None
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
         if self._pending_writes > 0:
             await self._db.commit()
             self._pending_writes = 0
-        cursor = await self._db.execute(
-            "SELECT * FROM memories WHERE id = ?", (entry_id,)
-        )
+        cursor = await self._db.execute("SELECT * FROM memories WHERE id = ?", (entry_id,))
         row = await cursor.fetchone()
         if row is None:
             return None
@@ -240,10 +268,9 @@ class MemoryStore:
         return entry
 
     async def delete(self, entry_id: str) -> bool:
-        assert self._db is not None
-        cursor = await self._db.execute(
-            "DELETE FROM memories WHERE id = ?", (entry_id,)
-        )
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
+        cursor = await self._db.execute("DELETE FROM memories WHERE id = ?", (entry_id,))
         self._pending_writes += 1
         self._invalidate_cache()
         if self._pending_writes >= _COMMIT_BATCH_SIZE:
@@ -260,18 +287,16 @@ class MemoryStore:
         self._search_cache.clear()
 
     async def get_recent(self, limit: int = 10) -> list[MemoryEntry]:
-        assert self._db is not None
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
         if self._pending_writes > 0:
             await self._db.commit()
             self._pending_writes = 0
-        cursor = await self._db.execute(
-            "SELECT * FROM memories ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,)
-        )
+        cursor = await self._db.execute("SELECT * FROM memories ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,))
         rows = await cursor.fetchall()
         return [self._row_to_entry(row) for row in rows]
 
     def _row_to_entry(self, row: tuple) -> MemoryEntry:
-        import json
         return MemoryEntry(
             id=row[0],
             type=MemoryType(row[1]),
@@ -288,9 +313,8 @@ class MemoryStore:
     # --- Session Persistence ---
 
     async def save_session(self, session_id: str, data: dict) -> None:
-        assert self._db is not None
-        import json
-        from datetime import datetime, timezone
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
         now = datetime.now(timezone.utc).isoformat()
         await self._db.execute(
             "INSERT OR REPLACE INTO sessions (id, data, updated_at) VALUES (?, ?, ?)",
@@ -302,24 +326,24 @@ class MemoryStore:
             self._pending_writes = 0
 
     async def load_session(self, session_id: str) -> dict | None:
-        assert self._db is not None
-        import json
-        cursor = await self._db.execute(
-            "SELECT data FROM sessions WHERE id = ?", (session_id,)
-        )
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
+        cursor = await self._db.execute("SELECT data FROM sessions WHERE id = ?", (session_id,))
         row = await cursor.fetchone()
         if row is None:
             return None
         return json.loads(row[0])
 
     async def list_sessions(self) -> list[dict]:
-        assert self._db is not None
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
         cursor = await self._db.execute("SELECT id, updated_at FROM sessions ORDER BY updated_at DESC")
         rows = await cursor.fetchall()
         return [{"id": r[0], "updated_at": r[1]} for r in rows]
 
     async def delete_session(self, session_id: str) -> bool:
-        assert self._db is not None
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
         cursor = await self._db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
         self._pending_writes += 1
         if self._pending_writes >= _COMMIT_BATCH_SIZE:
@@ -328,8 +352,8 @@ class MemoryStore:
         return cursor.rowcount > 0
 
     async def search_sessions(self, query: str, limit: int = 20, offset: int = 0) -> list[dict]:
-        assert self._db is not None
-        import json
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
         pattern = f"%{query}%"
         cursor = await self._db.execute(
             "SELECT id, data, updated_at FROM sessions WHERE data LIKE ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
@@ -339,12 +363,18 @@ class MemoryStore:
         results: list[dict] = []
         for r in rows:
             data = json.loads(r[1])
-            results.append({"id": r[0], "updated_at": r[2], "message_count": len(data.get("messages", [])) if isinstance(data, dict) else 0})
+            results.append(
+                {
+                    "id": r[0],
+                    "updated_at": r[2],
+                    "message_count": len(data.get("messages", [])) if isinstance(data, dict) else 0,
+                }
+            )
         return results
 
     async def export_session(self, session_id: str, format: str = "json") -> dict | str | None:
-        assert self._db is not None
-        import json
+        if self._db is None:
+            raise RuntimeError("MemoryStore is not connected. Call connect() first.")
         cursor = await self._db.execute("SELECT id, data, updated_at FROM sessions WHERE id = ?", (session_id,))
         row = await cursor.fetchone()
         if row is None:

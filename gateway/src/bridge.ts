@@ -1,4 +1,5 @@
 import type { ChatRequest, ChatResponse, StreamChunk } from "../../shared/protocols/messages";
+import { logger } from "./utils/logger.js";
 
 export interface BridgeConfig {
   engineHost: string;
@@ -16,12 +17,19 @@ export class EngineBridge {
     this.wsUrl = `ws://${config.engineHost}:${config.enginePort}`;
   }
 
+  private checkResponse(res: Response): void {
+    if (!res.ok) {
+      throw new Error(`Engine returned ${res.status}: ${res.statusText}`);
+    }
+  }
+
   getBaseUrl(): string {
     return this.baseUrl;
   }
 
   async health(): Promise<{ status: string; version: string }> {
     const res = await fetch(`${this.baseUrl}/api/health`);
+    this.checkResponse(res);
     return res.json() as Promise<{ status: string; version: string }>;
   }
 
@@ -31,6 +39,7 @@ export class EngineBridge {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req),
     });
+    this.checkResponse(res);
     return res.json() as Promise<ChatResponse>;
   }
 
@@ -42,7 +51,13 @@ export class EngineBridge {
     let done = false;
 
     ws.onmessage = (event) => {
-      const chunk: StreamChunk = JSON.parse(event.data as string);
+      let chunk: StreamChunk;
+      try {
+        chunk = JSON.parse(event.data as string);
+      } catch (err) {
+        logger.error("Failed to parse WebSocket message from engine", err);
+        return;
+      }
       messageQueue.push(chunk);
       if (resolve) {
         resolve();
@@ -74,6 +89,7 @@ export class EngineBridge {
     if (sessionId) params.set("session_id", sessionId);
 
     const res = await fetch(`${this.baseUrl}/api/chat/stream?${params}`);
+    this.checkResponse(res);
     if (!res.body) throw new Error("No response body for SSE stream");
 
     const reader = res.body.getReader();
@@ -93,7 +109,12 @@ export class EngineBridge {
         if (!dataLine.startsWith("data: ")) continue;
         const payload = dataLine.slice(6);
         if (payload === "[DONE]") return;
-        yield JSON.parse(payload) as StreamChunk;
+        try {
+          yield JSON.parse(payload) as StreamChunk;
+        } catch (err) {
+          logger.error("Failed to parse SSE chunk from engine", err);
+          continue;
+        }
       }
     }
   }
@@ -104,6 +125,7 @@ export class EngineBridge {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, source, chunk_size: chunkSize }),
     });
+    this.checkResponse(res);
     return res.json() as Promise<{status: string; chunks_created: number}>;
   }
 
@@ -140,6 +162,7 @@ export class EngineBridge {
       method: "POST",
       body: formData,
     });
+    this.checkResponse(res);
     return res.json() as Promise<{status: string; filename: string; chunks_created: number}>;
   }
 
@@ -150,6 +173,7 @@ export class EngineBridge {
       method: "POST",
       body: formData,
     });
+    this.checkResponse(res);
     return res.json() as Promise<{text: string}>;
   }
 
@@ -159,6 +183,7 @@ export class EngineBridge {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, voice: voice || "alloy", model: model || "tts-1" }),
     });
+    this.checkResponse(res);
     return res.json() as Promise<{status: string; path: string}>;
   }
 

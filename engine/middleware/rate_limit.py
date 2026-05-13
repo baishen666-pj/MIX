@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -32,6 +32,11 @@ class RateLimiter:
                 del self._minute_buckets[k]
                 self._hour_buckets.pop(k, None)
 
+        if len(self._hour_buckets) > 5000:
+            stale_hours = [k for k, b in self._hour_buckets.items() if now - b.window_start > 7200]
+            for k in stale_hours:
+                del self._hour_buckets[k]
+
         # Per-minute
         minute = self._minute_buckets.get(key)
         if minute is None:
@@ -45,7 +50,7 @@ class RateLimiter:
         if minute.count >= self._rpm:
             return False, {
                 "error": "Rate limit exceeded (per minute)",
-                "retry_after": int(60 - (now - minute.window_start)),
+                "retry_after": max(1, int(60 - (now - minute.window_start))),
                 "limit": self._rpm,
                 "remaining": 0,
             }
@@ -61,7 +66,7 @@ class RateLimiter:
         if hour.count >= self._rph:
             return False, {
                 "error": "Rate limit exceeded (per hour)",
-                "retry_after": int(3600 - (now - hour.window_start)),
+                "retry_after": max(1, int(3600 - (now - hour.window_start))),
                 "limit": self._rph,
                 "remaining": 0,
             }

@@ -1,10 +1,8 @@
-import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
-from engine.agent.loop import AgentLoop, MAX_TOOL_ITERATIONS
-from engine.config import MixConfig, EngineConfig, ProviderConfig, MemoryConfig
-from engine.tools.registry import ToolRegistry, ToolResult
+from engine.agent.loop import MAX_TOOL_ITERATIONS, AgentLoop
+from engine.config import EngineConfig, MemoryConfig, MixConfig, ProviderConfig
+from engine.tools.registry import ToolResult
 
 
 async def mock_bash(**kw):
@@ -69,10 +67,21 @@ async def test_chat_stream_no_tool_calls() -> None:
 async def test_chat_stream_single_tool_call() -> None:
     config = make_config()
     loop = AgentLoop(config)
-    loop.provider = MockProvider([
-        {"content": "", "tool_calls": [{"id": "tc1", "type": "function", "function": {"name": "bash", "arguments": '{"command": "echo hi"}'}}]},
-        {"content": "Done!", "tool_calls": None},
-    ])
+    loop.provider = MockProvider(
+        [
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "tc1",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": '{"command": "echo hi"}'},
+                    }
+                ],
+            },
+            {"content": "Done!", "tool_calls": None},
+        ]
+    )
     loop.tools.register_tool("bash", mock_bash)
 
     chunks = []
@@ -91,11 +100,31 @@ async def test_chat_stream_single_tool_call() -> None:
 async def test_chat_stream_multi_iteration() -> None:
     config = make_config()
     loop = AgentLoop(config)
-    loop.provider = MockProvider([
-        {"content": "", "tool_calls": [{"id": "tc1", "type": "function", "function": {"name": "bash", "arguments": '{"command": "echo 1"}'}}]},
-        {"content": "", "tool_calls": [{"id": "tc2", "type": "function", "function": {"name": "bash", "arguments": '{"command": "echo 2"}'}}]},
-        {"content": "All done!", "tool_calls": None},
-    ])
+    loop.provider = MockProvider(
+        [
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "tc1",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": '{"command": "echo 1"}'},
+                    }
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "tc2",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": '{"command": "echo 2"}'},
+                    }
+                ],
+            },
+            {"content": "All done!", "tool_calls": None},
+        ]
+    )
     loop.tools.register_tool("bash", mock_bash)
 
     chunks = []
@@ -113,7 +142,12 @@ async def test_chat_stream_respects_max_iterations() -> None:
     loop = AgentLoop(config)
 
     infinite_tool_calls = [
-        {"content": "", "tool_calls": [{"id": f"tc{i}", "type": "function", "function": {"name": "bash", "arguments": '{"command": "echo"}'}}]}
+        {
+            "content": "",
+            "tool_calls": [
+                {"id": f"tc{i}", "type": "function", "function": {"name": "bash", "arguments": '{"command": "echo"}'}}
+            ],
+        }
         for i in range(MAX_TOOL_ITERATIONS + 5)
     ]
     loop.provider = MockProvider(infinite_tool_calls)
@@ -145,10 +179,12 @@ async def test_chat_stream_yields_deltas() -> None:
 async def test_chat_stream_session_persistence() -> None:
     config = make_config()
     loop = AgentLoop(config)
-    loop.provider = MockProvider([
-        {"content": "First response", "tool_calls": None},
-        {"content": "Second response", "tool_calls": None},
-    ])
+    loop.provider = MockProvider(
+        [
+            {"content": "First response", "tool_calls": None},
+            {"content": "Second response", "tool_calls": None},
+        ]
+    )
 
     chunks1 = []
     async for chunk in loop.chat_stream("msg1", session_id="sess-1"):
@@ -158,7 +194,7 @@ async def test_chat_stream_session_persistence() -> None:
     async for chunk in loop.chat_stream("msg2", session_id="sess-1"):
         chunks2.append(chunk)
 
-    session = loop.get_or_create_session("sess-1")
+    session = await loop.get_or_create_session("sess-1")
     assert len(session.messages) == 4
 
 
@@ -177,10 +213,21 @@ async def test_chat_no_tool_calls() -> None:
 async def test_chat_with_tool_calls() -> None:
     config = make_config()
     loop = AgentLoop(config)
-    loop.provider = MockProvider([
-        {"content": "", "tool_calls": [{"id": "tc1", "type": "function", "function": {"name": "bash", "arguments": '{"command": "echo ok"}'}}]},
-        {"content": "Result: ok", "tool_calls": None},
-    ])
+    loop.provider = MockProvider(
+        [
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "tc1",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": '{"command": "echo ok"}'},
+                    }
+                ],
+            },
+            {"content": "Result: ok", "tool_calls": None},
+        ]
+    )
     loop.tools.register_tool("bash", mock_bash)
 
     result = await loop.chat("run echo")

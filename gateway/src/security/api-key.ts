@@ -101,6 +101,10 @@ export class ApiKeyAuth {
       return;
     }
 
+    if (this.rateLimitMap.size > 1000) {
+      this.cleanupRateLimits();
+    }
+
     const now = Date.now();
     const entry = this.rateLimitMap.get(key);
 
@@ -124,5 +128,14 @@ export class ApiKeyAuth {
     }
 
     done();
+  }
+
+  private cleanupRateLimits(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.rateLimitMap) {
+      if (entry.resetAt < now) {
+        this.rateLimitMap.delete(key);
+      }
+    }
   }
 }

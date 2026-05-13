@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 interface JsonLogEntry {
@@ -10,14 +12,14 @@ interface JsonLogEntry {
 
 const useJson = process.env.LOG_FORMAT === "json";
 
-let currentRequestId = "";
+const requestIdStore = new AsyncLocalStorage<string>();
 
 export function setRequestId(id: string): void {
-  currentRequestId = id;
+  requestIdStore.enterWith(id);
 }
 
 export function resetRequestId(): void {
-  currentRequestId = "";
+  requestIdStore.enterWith("");
 }
 
 function timestamp(): string {
@@ -33,8 +35,9 @@ function logJson(level: LogLevel, msg: string, data?: unknown): void {
   if (data !== undefined) {
     entry.data = data;
   }
-  if (currentRequestId) {
-    entry.requestId = currentRequestId;
+  const rid = requestIdStore.getStore();
+  if (rid) {
+    entry.requestId = rid;
   }
   console.log(JSON.stringify(entry));
 }

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import json
-import pytest
 from pathlib import Path
-from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from engine.config import EngineConfig, MemoryConfig, MixConfig, ProviderConfig
 from engine.main import create_app
-from engine.config import MixConfig, ProviderConfig, EngineConfig, MemoryConfig
-from engine.memory.store import MemoryStore
 
 
 def make_config(tmp_path: Path) -> MixConfig:
@@ -43,6 +42,7 @@ async def e2e_client(tmp_path: Path):
     app = create_app(config)
 
     from engine.api import routes as routes_mod
+
     provider = MockProvider()
     routes_mod._agent_loop.provider = provider
 
@@ -62,8 +62,8 @@ async def e2e_client(tmp_path: Path):
 # Health
 # ---------------------------------------------------------------------------
 
-class TestHealthE2E:
 
+class TestHealthE2E:
     @pytest.mark.asyncio
     async def test_health_endpoint(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.get("/api/health")
@@ -77,16 +77,19 @@ class TestHealthE2E:
 # Chat
 # ---------------------------------------------------------------------------
 
-class TestChatE2E:
 
+class TestChatE2E:
     @pytest.mark.asyncio
     async def test_chat_returns_response(self, tmp_path: Path) -> None:
         config = make_config(tmp_path)
         app = create_app(config)
         from engine.api import routes as routes_mod
-        routes_mod._agent_loop.provider = MockProvider([
-            {"content": "Hello! How can I help?", "tool_calls": None, "usage": {"total_tokens": 25}},
-        ])
+
+        routes_mod._agent_loop.provider = MockProvider(
+            [
+                {"content": "Hello! How can I help?", "tool_calls": None, "usage": {"total_tokens": 25}},
+            ]
+        )
         if routes_mod._memory:
             await routes_mod._memory.connect()
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -108,8 +111,8 @@ class TestChatE2E:
 # Memory
 # ---------------------------------------------------------------------------
 
-class TestMemoryE2E:
 
+class TestMemoryE2E:
     @pytest.mark.asyncio
     async def test_memory_create_and_search(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.post("/api/memory", json={"content": "test memory entry", "type": "context"})
@@ -139,8 +142,8 @@ class TestMemoryE2E:
 # Sessions
 # ---------------------------------------------------------------------------
 
-class TestSessionsE2E:
 
+class TestSessionsE2E:
     @pytest.mark.asyncio
     async def test_sessions_list(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.get("/api/sessions")
@@ -152,8 +155,8 @@ class TestSessionsE2E:
 # Tools
 # ---------------------------------------------------------------------------
 
-class TestToolsE2E:
 
+class TestToolsE2E:
     @pytest.mark.asyncio
     async def test_tools_list(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.get("/api/tools")
@@ -166,8 +169,8 @@ class TestToolsE2E:
 # Agents
 # ---------------------------------------------------------------------------
 
-class TestAgentsE2E:
 
+class TestAgentsE2E:
     @pytest.mark.asyncio
     async def test_agents_list(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.get("/api/agents")
@@ -179,8 +182,8 @@ class TestAgentsE2E:
 # Skills
 # ---------------------------------------------------------------------------
 
-class TestSkillsE2E:
 
+class TestSkillsE2E:
     @pytest.mark.asyncio
     async def test_skills_list(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.get("/api/skills")
@@ -192,15 +195,18 @@ class TestSkillsE2E:
 # Cron
 # ---------------------------------------------------------------------------
 
-class TestCronE2E:
 
+class TestCronE2E:
     @pytest.mark.asyncio
     async def test_cron_schedule_and_list(self, e2e_client: AsyncClient) -> None:
-        resp = await e2e_client.post("/api/cron/schedule", json={
-            "name": "daily_greeting",
-            "cron": "0 9 * * *",
-            "message": "Good morning!",
-        })
+        resp = await e2e_client.post(
+            "/api/cron/schedule",
+            json={
+                "name": "daily_greeting",
+                "cron": "0 9 * * *",
+                "message": "Good morning!",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
         job_id = resp.json()["job"]["id"]
@@ -217,8 +223,8 @@ class TestCronE2E:
 # Learning
 # ---------------------------------------------------------------------------
 
-class TestLearningE2E:
 
+class TestLearningE2E:
     @pytest.mark.asyncio
     async def test_learning_insights(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.get("/api/learning/insights")
@@ -230,8 +236,8 @@ class TestLearningE2E:
 # MCP
 # ---------------------------------------------------------------------------
 
-class TestMCPE2E:
 
+class TestMCPE2E:
     @pytest.mark.asyncio
     async def test_mcp_servers_empty(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.get("/api/mcp/servers")
@@ -243,13 +249,13 @@ class TestMCPE2E:
 # Voice
 # ---------------------------------------------------------------------------
 
-class TestVoicePathE2E:
 
+class TestVoicePathE2E:
     @pytest.mark.asyncio
     async def test_voice_stt_path_missing(self, e2e_client: AsyncClient) -> None:
         resp = await e2e_client.post("/api/voice/stt/path", json={"path": ""})
-        assert resp.status_code == 200
-        assert "error" in resp.json()
+        assert resp.status_code == 400
+        assert "detail" in resp.json()
 
     @pytest.mark.asyncio
     @patch("openai.AsyncOpenAI")
@@ -273,8 +279,8 @@ class TestVoicePathE2E:
 # SSE Streaming
 # ---------------------------------------------------------------------------
 
-class TestSSEStreamE2E:
 
+class TestSSEStreamE2E:
     @pytest.mark.asyncio
     async def test_sse_chat_stream(self, tmp_path: Path) -> None:
         config = make_config(tmp_path)
@@ -307,16 +313,19 @@ class TestSSEStreamE2E:
 # Token Budget
 # ---------------------------------------------------------------------------
 
-class TestTokenBudgetE2E:
 
+class TestTokenBudgetE2E:
     @pytest.mark.asyncio
     async def test_chat_returns_tokens_used(self, tmp_path: Path) -> None:
         config = make_config(tmp_path)
         app = create_app(config)
         from engine.api import routes as routes_mod
-        routes_mod._agent_loop.provider = MockProvider([
-            {"content": "Response", "tool_calls": None, "usage": {"total_tokens": 42}},
-        ])
+
+        routes_mod._agent_loop.provider = MockProvider(
+            [
+                {"content": "Response", "tool_calls": None, "usage": {"total_tokens": 42}},
+            ]
+        )
         if routes_mod._memory:
             await routes_mod._memory.connect()
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

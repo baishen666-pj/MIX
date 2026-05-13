@@ -19,7 +19,7 @@ export class DmSecurityFilter {
       return { allowed: true };
     }
 
-    if (this.pairing.isAllowed(msg.channel, msg.userId) === false) {
+    if (this.pairing.canPair(msg.channel, msg.userId)) {
       const code = this.pairing.generatePairingCode(msg.channel, msg.userId);
       return {
         allowed: false,

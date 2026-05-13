@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import logging
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
-
-import logging
 
 log = logging.getLogger("mix.approval")
 
@@ -49,6 +48,7 @@ class ApprovalManager:
         self._auto_approve_safe = auto_approve_safe
         self._ttl_seconds = ttl_seconds
         self._requests: dict[str, ApprovalRequest] = {}
+        self._max_requests = 1000
 
     async def request_approval(
         self,
@@ -57,7 +57,7 @@ class ApprovalManager:
         danger_level: str,
     ) -> ApprovalRequest:
         req = ApprovalRequest(
-            id=uuid.uuid4().hex[:12],
+            id=uuid.uuid4().hex[:16],
             tool_name=tool_name,
             arguments=arguments,
             danger_level=danger_level,
@@ -70,6 +70,10 @@ class ApprovalManager:
             req.resolved_by = "auto"
             log.debug("Auto-approved safe tool: %s", tool_name)
         else:
+            self._cleanup_expired()
+            if len(self._requests) >= self._max_requests:
+                oldest_id = min(self._requests, key=lambda k: self._requests[k].requested_at)
+                del self._requests[oldest_id]
             self._requests[req.id] = req
             log.info("Approval requested for %s (%s): %s", tool_name, danger_level, req.id)
 
@@ -114,8 +118,12 @@ class ApprovalManager:
 
     def _cleanup_expired(self) -> int:
         expired = 0
-        for req in self._requests.values():
+        to_remove: list[str] = []
+        for req_id, req in self._requests.items():
             self._check_expiry(req)
             if req.status == ApprovalStatus.EXPIRED:
+                to_remove.append(req_id)
                 expired += 1
+        for req_id in to_remove:
+            del self._requests[req_id]
         return expired

@@ -5,14 +5,19 @@ the full request->response pipeline without real API calls.
 """
 
 import json
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from starlette.testclient import TestClient
 
 from engine.config import (
-    MixConfig, ProviderConfig, EngineConfig, GatewayConfig,
-    MemoryConfig, RateLimitConfig,
+    EngineConfig,
+    GatewayConfig,
+    MemoryConfig,
+    MixConfig,
+    ProviderConfig,
+    RateLimitConfig,
 )
 from engine.main import create_app
 
@@ -31,6 +36,7 @@ def test_config(tmp_path: Path) -> MixConfig:
 @pytest.fixture
 def mock_llm():
     with patch("engine.agent.loop.create_provider") as mock_create:
+
         async def fake_complete(messages, tools=None, **kwargs):
             return {"content": "Hello! I am MIX bot.", "tool_calls": None}
 
@@ -65,10 +71,13 @@ class TestEngineHealth:
 
 class TestEngineChat:
     def test_chat_returns_response(self, client: TestClient):
-        resp = client.post("/api/chat", json={
-            "message": "Hello",
-            "session_id": "e2e-chat-1",
-        })
+        resp = client.post(
+            "/api/chat",
+            json={
+                "message": "Hello",
+                "session_id": "e2e-chat-1",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "id" in data
@@ -76,18 +85,24 @@ class TestEngineChat:
         assert data["content"] == "Hello! I am MIX bot."
 
     def test_chat_with_session_id(self, client: TestClient):
-        resp = client.post("/api/chat", json={
-            "message": "Hello",
-            "session_id": "test-session-1",
-        })
+        resp = client.post(
+            "/api/chat",
+            json={
+                "message": "Hello",
+                "session_id": "test-session-1",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["session_id"] == "test-session-1"
 
     def test_chat_empty_message_works_with_session(self, client: TestClient):
-        resp = client.post("/api/chat", json={
-            "message": "",
-            "session_id": "e2e-empty-1",
-        })
+        resp = client.post(
+            "/api/chat",
+            json={
+                "message": "",
+                "session_id": "e2e-empty-1",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["content"] == "Hello! I am MIX bot."
 
@@ -98,23 +113,32 @@ class TestEngineChat:
 
 class TestEngineMemory:
     def test_memory_search_empty(self, client: TestClient):
-        resp = client.post("/api/memory/search", json={
-            "query": "test",
-            "limit": 10,
-        })
+        resp = client.post(
+            "/api/memory/search",
+            json={
+                "query": "test",
+                "limit": 10,
+            },
+        )
         assert resp.status_code == 200
         assert resp.json() == []
 
     def test_memory_search_after_chat(self, client: TestClient):
-        client.post("/api/chat", json={
-            "message": "my favorite color is blue",
-            "session_id": "e2e-mem-1",
-        })
+        client.post(
+            "/api/chat",
+            json={
+                "message": "my favorite color is blue",
+                "session_id": "e2e-mem-1",
+            },
+        )
 
-        resp = client.post("/api/memory/search", json={
-            "query": "favorite color",
-            "limit": 10,
-        })
+        resp = client.post(
+            "/api/memory/search",
+            json={
+                "query": "favorite color",
+                "limit": 10,
+            },
+        )
         assert resp.status_code == 200
         results = resp.json()
         assert len(results) > 0
@@ -135,11 +159,14 @@ class TestEngineSkills:
         assert isinstance(data["skills"], list)
 
     def test_skills_execute_not_found(self, client: TestClient):
-        resp = client.post("/api/skills/execute", json={
-            "skill_name": "nonexistent",
-        })
-        assert resp.status_code == 200
-        assert "error" in resp.json()
+        resp = client.post(
+            "/api/skills/execute",
+            json={
+                "skill_name": "nonexistent",
+            },
+        )
+        assert resp.status_code == 404
+        assert "detail" in resp.json()
 
 
 class TestEngineTools:
@@ -151,9 +178,12 @@ class TestEngineTools:
         assert "definitions" in data
 
     def test_bash_tool_execute(self, client: TestClient):
-        resp = client.post("/api/tools/bash/execute", json={
-            "command": "echo e2e",
-        })
+        resp = client.post(
+            "/api/tools/bash/execute",
+            json={
+                "command": "echo e2e",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -176,11 +206,14 @@ class TestEngineCron:
         assert "jobs" in data
 
     def test_cron_schedule_and_list(self, client: TestClient):
-        resp = client.post("/api/cron/schedule", json={
-            "name": "test-job",
-            "cron": "*/5 * * * *",
-            "message": "hello",
-        })
+        resp = client.post(
+            "/api/cron/schedule",
+            json={
+                "name": "test-job",
+                "cron": "*/5 * * * *",
+                "message": "hello",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
@@ -191,11 +224,14 @@ class TestEngineCron:
         assert any(j["name"] == "test-job" for j in jobs)
 
     def test_cron_delete(self, client: TestClient):
-        schedule = client.post("/api/cron/schedule", json={
-            "name": "to-delete",
-            "cron": "0 * * * *",
-            "message": "bye",
-        })
+        schedule = client.post(
+            "/api/cron/schedule",
+            json={
+                "name": "to-delete",
+                "cron": "0 * * * *",
+                "message": "bye",
+            },
+        )
         job_id = schedule.json()["job"]["id"]
 
         resp = client.delete(f"/api/cron/jobs/{job_id}")

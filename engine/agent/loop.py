@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import uuid
 from dataclasses import dataclass, field
 from typing import AsyncIterator
 
-from engine.llm import LLMProvider, create_provider
 from engine.config import MixConfig
+from engine.llm import LLMProvider, create_provider
 from engine.memory.store import MemoryStore
 from engine.memory.types import MemoryEntry, MemoryType
 from engine.tools.registry import ToolRegistry
@@ -14,6 +16,8 @@ from engine.tools.registry import ToolRegistry
 MAX_TOOL_ITERATIONS = 10
 MAX_SESSION_MESSAGES = 50
 CHARS_PER_TOKEN = 4  # rough estimate for token counting without tiktoken
+
+log = logging.getLogger("mix.agent_loop")
 
 
 @dataclass
@@ -58,6 +62,7 @@ class AgentLoop:
         self.config = config
         self.provider: LLMProvider = create_provider(config.llm)
         self._sessions: dict[str, Session] = {}
+        self._sessions_lock = asyncio.Lock()
         self.memory = memory
         self.tools = tools or ToolRegistry()
         self._total_tokens_used = 0
@@ -83,9 +88,7 @@ class AgentLoop:
             "decisions, and context. Output only the summary, no preamble.\n\n"
         )
         conv_text = "\n".join(
-            f"{m.get('role', '?')}: {m.get('content', '')}"
-            for m in messages
-            if m.get("role") != "system"
+            f"{m.get('role', '?')}: {m.get('content', '')}" for m in messages if m.get("role") != "system"
         )
         if not conv_text.strip():
             return ""
@@ -99,6 +102,7 @@ class AgentLoop:
             )
             return response.get("content", "")[:2000]
         except Exception:
+            log.exception("Failed to summarize messages")
             return ""
 
     def _trim_to_budget(self, messages: list[dict], budget: int) -> list[dict]:
@@ -112,18 +116,20 @@ class AgentLoop:
             return messages[-3:]
         trimmed_count = len(messages) - len(system_msgs) - len(other_msgs)
         if trimmed_count > 0:
-            system_msgs.insert(0, {"role": "system", "content": f"[{trimmed_count} earlier messages trimmed for token budget]"})
+            system_msgs.insert(
+                0, {"role": "system", "content": f"[{trimmed_count} earlier messages trimmed for token budget]"}
+            )
         return system_msgs + other_msgs
 
     async def _summarize_older_context(self, session: Session) -> None:
         if len(session.messages) <= MAX_SESSION_MESSAGES + 10:
             return
-        older = session.messages[:len(session.messages) - MAX_SESSION_MESSAGES]
+        older = session.messages[: len(session.messages) - MAX_SESSION_MESSAGES]
         older_dicts = [m.to_api_dict() for m in older]
         summary = await self._summarize_messages(older_dicts)
         if summary:
             summary_msg = Message(role="system", content=f"[Earlier conversation summary]\n{summary}")
-            recent = session.messages[len(session.messages) - MAX_SESSION_MESSAGES:]
+            recent = session.messages[len(session.messages) - MAX_SESSION_MESSAGES :]
             session.messages = [summary_msg, *recent]
 
     async def _build_context(self, session: Session) -> list[dict]:
@@ -170,15 +176,16 @@ class AgentLoop:
         )
         await self.memory.store(entry)
 
-    def get_or_create_session(self, session_id: str | None = None) -> Session:
+    async def get_or_create_session(self, session_id: str | None = None) -> Session:
         sid = session_id or str(uuid.uuid4())
-        if sid not in self._sessions:
-            self._sessions[sid] = Session(
-                id=sid,
-                model=self.config.llm.model,
-                created_at=_now_iso(),
-            )
-        return self._sessions[sid]
+        async with self._sessions_lock:
+            if sid not in self._sessions:
+                self._sessions[sid] = Session(
+                    id=sid,
+                    model=self.config.llm.model,
+                    created_at=_now_iso(),
+                )
+            return self._sessions[sid]
 
     def _get_tool_definitions(self) -> list[dict]:
         return self.tools.get_definitions()
@@ -194,16 +201,50 @@ class AgentLoop:
                 arguments = {}
 
             result = await self.tools.execute(name, **arguments)
-            tool_results.append(Message(
-                role="tool",
-                content=result.output if result.success else f"Error: {result.error}",
-                tool_call_id=call.get("id"),
-                name=name,
-            ))
+            tool_results.append(
+                Message(
+                    role="tool",
+                    content=result.output if result.success else f"Error: {result.error}",
+                    tool_call_id=call.get("id"),
+                    name=name,
+                )
+            )
         return tool_results
 
+    async def _process_tool_results(
+        self,
+        session: Session,
+        context_messages: list[dict],
+        tool_calls: list[dict],
+    ) -> list[dict]:
+        """Execute tool calls, update session and context. Return event dicts."""
+        events: list[dict] = []
+        for call in tool_calls:
+            func = call.get("function", {})
+            events.append(
+                {
+                    "type": "tool_call",
+                    "id": call.get("id"),
+                    "name": func.get("name"),
+                    "arguments": func.get("arguments"),
+                }
+            )
+        tool_results = await self._execute_tool_calls(tool_calls)
+        for tr in tool_results:
+            session.messages = [*session.messages, tr]
+            context_messages.append(tr.to_api_dict())
+            events.append(
+                {
+                    "type": "tool_result",
+                    "tool_call_id": tr.tool_call_id,
+                    "name": tr.name,
+                    "content": tr.content,
+                }
+            )
+        return events
+
     async def chat(self, user_message: str, session_id: str | None = None) -> dict:
-        session = self.get_or_create_session(session_id)
+        session = await self.get_or_create_session(session_id)
         session.add("user", user_message)
         await self._persist_memory(session, "user", user_message)
 
@@ -235,25 +276,7 @@ class AgentLoop:
                     "metadata": {"tokens_used": self._total_tokens_used},
                 }
 
-            for call in tool_calls:
-                func = call.get("function", {})
-                all_tool_events.append({
-                    "type": "tool_call",
-                    "id": call.get("id"),
-                    "name": func.get("name"),
-                    "arguments": func.get("arguments"),
-                })
-
-            tool_results = await self._execute_tool_calls(tool_calls)
-            for tr in tool_results:
-                session.messages = [*session.messages, tr]
-                context_messages.append(tr.to_api_dict())
-                all_tool_events.append({
-                    "type": "tool_result",
-                    "tool_call_id": tr.tool_call_id,
-                    "name": tr.name,
-                    "content": tr.content,
-                })
+            all_tool_events.extend(await self._process_tool_results(session, context_messages, tool_calls))
 
         return {
             "id": str(uuid.uuid4()),
@@ -265,7 +288,7 @@ class AgentLoop:
         }
 
     async def chat_stream(self, user_message: str, session_id: str | None = None) -> AsyncIterator[dict]:
-        session = self.get_or_create_session(session_id)
+        session = await self.get_or_create_session(session_id)
         session.add("user", user_message)
         await self._persist_memory(session, "user", user_message)
 
@@ -299,11 +322,13 @@ class AgentLoop:
             if not accumulated_tool_calls:
                 break
 
-            context_messages.append({
-                "role": "assistant",
-                "content": "",
-                "tool_calls": accumulated_tool_calls,
-            })
+            context_messages.append(
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": accumulated_tool_calls,
+                }
+            )
 
             for call in accumulated_tool_calls:
                 yield {
@@ -337,4 +362,5 @@ class AgentLoop:
 
 def _now_iso() -> str:
     from datetime import datetime, timezone
+
     return datetime.now(timezone.utc).isoformat()

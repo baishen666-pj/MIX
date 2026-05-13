@@ -4,9 +4,9 @@ import asyncio
 import fnmatch
 import logging
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine
-from collections import defaultdict
 
 log = logging.getLogger("mix.bus")
 
@@ -38,18 +38,19 @@ class AgentBus:
                 msg = await queue.get()
                 try:
                     await handler(msg)
-                except Exception:
+                except Exception as exc:
                     log.exception("Handler error on channel %s", channel)
+                    if msg.id in self._pending_requests:
+                        future = self._pending_requests.pop(msg.id)
+                        if not future.done():
+                            future.set_exception(exc)
                 queue.task_done()
 
         asyncio.ensure_future(_dispatch())
         log.debug("Subscribed handler to channel %s", channel)
 
     def unsubscribe(self, channel: str, handler: Callable) -> None:
-        remaining = [
-            (h, q) for h, q in self._subscribers.get(channel, [])
-            if h is not handler
-        ]
+        remaining = [(h, q) for h, q in self._subscribers.get(channel, []) if h is not handler]
         removed = len(self._subscribers.get(channel, [])) - len(remaining)
         self._subscribers[channel] = remaining
         if removed:
@@ -107,9 +108,7 @@ class AgentBus:
         return True
 
     def list_channels(self) -> list[str]:
-        return sorted(
-            ch for ch, subs in self._subscribers.items() if subs
-        )
+        return sorted(ch for ch, subs in self._subscribers.items() if subs)
 
     def subscriber_count(self, channel: str) -> int:
         return len(self._subscribers.get(channel, []))

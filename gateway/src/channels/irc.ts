@@ -1,8 +1,7 @@
 import * as net from "net";
 import * as tls from "tls";
-import type { ChannelAdapter, ChannelMessage } from "./types.js";
-
-type MessageHandler = (msg: ChannelMessage) => void;
+import { BaseChannel } from "./base.js";
+import type { ChannelMessage } from "./types.js";
 
 export interface IrcConfig {
   server: string;
@@ -56,20 +55,16 @@ function extractNick(prefix: string): string {
   return bang === -1 ? prefix : prefix.substring(0, bang);
 }
 
-export class IrcChannel implements ChannelAdapter {
+export class IrcChannel extends BaseChannel {
   readonly name = "irc" as const;
-  private handlers: MessageHandler[] = [];
   private config: IrcConfig;
   private socket: net.Socket | null = null;
   private connected = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: IrcConfig) {
+    super();
     this.config = config;
-  }
-
-  onMessage(handler: MessageHandler): void {
-    this.handlers = [...this.handlers, handler];
   }
 
   async start(): Promise<void> {
@@ -88,17 +83,19 @@ export class IrcChannel implements ChannelAdapter {
       this.socket.destroy();
       this.socket = null;
     }
-    this.handlers = [];
+    await super.stop();
   }
 
   async send(msg: ChannelMessage): Promise<void> {
-    const target = msg.metadata.ircTarget as string;
-    if (!target || !this.socket) return;
+    const rawTarget = msg.metadata.ircTarget as string | undefined;
+    if (!rawTarget || !this.socket) return;
+    const target = this.sanitizeIrcParam(rawTarget);
 
     const lines = msg.content.split("\n");
     for (const line of lines) {
-      if (line.trim()) {
-        this.sendRaw(`PRIVMSG ${target} :${line}`);
+      const sanitized = this.sanitizeIrcParam(line);
+      if (sanitized.trim()) {
+        this.sendRaw(`PRIVMSG ${target} :${sanitized}`);
       }
     }
   }
@@ -189,13 +186,15 @@ export class IrcChannel implements ChannelAdapter {
         timestamp: new Date().toISOString(),
       };
 
-      for (const handler of this.handlers) {
-        handler(channelMsg);
-      }
+      this.dispatch(channelMsg);
     }
   }
 
   private sendRaw(data: string): void {
     this.socket?.write(`${data}\r\n`);
+  }
+
+  private sanitizeIrcParam(param: string): string {
+    return param.replace(/[\r\n\0]/g, "");
   }
 }

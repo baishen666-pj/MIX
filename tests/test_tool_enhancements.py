@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from engine.tools.dynamic import DynamicToolRegistry, DynamicToolDef
-from engine.tools.composition import ToolChain, ToolChainStep, ToolChainExecutor
 from engine.tools.approval import ApprovalManager, ApprovalStatus
+from engine.tools.composition import ToolChain, ToolChainExecutor, ToolChainStep
+from engine.tools.dynamic import DynamicToolDef, DynamicToolRegistry
 from engine.tools.history import ToolHistory
 from engine.tools.registry import ToolRegistry
 from engine.tools.types import ToolResult
 
-
 # --- Dynamic Tools ---
+
 
 @pytest.fixture
 def dynamic():
@@ -23,7 +23,7 @@ async def test_register_dynamic_tool(dynamic: DynamicToolRegistry):
         name="echo_test",
         description="Echo input",
         parameters={"type": "object", "properties": {"text": {"type": "string"}}},
-        handler_code="import json,sys; args=json.loads(sys.stdin.read()); print(args.get('text',''))",
+        handler_code="import json; args=json.loads(input()); print(args.get('text',''))",
         danger_level="safe",
     )
     await dynamic.register(defn)
@@ -68,6 +68,7 @@ def test_to_openai_definition():
 
 
 # --- Tool Chain ---
+
 
 @pytest.fixture
 def registry():
@@ -121,6 +122,7 @@ def test_chain_list(registry: ToolRegistry):
 
 
 # --- Approval ---
+
 
 @pytest.fixture
 def approval():
@@ -180,6 +182,7 @@ async def test_no_auto_approve_dangerous():
 
 
 # --- History ---
+
 
 @pytest.fixture
 def history():
