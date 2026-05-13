@@ -109,6 +109,8 @@ export class WeChatChannel implements ChannelAdapter {
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
     }
+    // SECURITY WARNING: corpId and secret are sent as query params per WeChat API requirement.
+    // Do NOT log this URL — it contains credentials.
     const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${this.config.corpId}&corpsecret=${this.config.secret}`;
     const res = await fetch(url);
     const data = (await res.json()) as { access_token?: string; expires_in?: number };

@@ -1,8 +1,43 @@
 from __future__ import annotations
 
-from engine.tools.types import ToolResult
-import httpx
+import ipaddress
 import json
+import logging
+import re
+from urllib.parse import urljoin, urlparse
+
+import httpx
+
+from engine.tools.types import ToolResult
+
+log = logging.getLogger("mix.scraper")
+
+
+def _validate_url(url: str) -> None:
+    """Validate URL to prevent SSRF attacks.
+
+    Rejects non-HTTP schemes and private/internal IP addresses.
+    Raises ValueError if the URL is unsafe.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Blocked: scheme '{parsed.scheme}' is not allowed")
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("Blocked: URL has no hostname")
+
+    import socket
+
+    try:
+        resolved = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ValueError(f"Blocked: cannot resolve hostname '{hostname}'") from exc
+
+    for family, _type, _proto, _canonname, sockaddr in resolved:
+        addr = ipaddress.ip_address(sockaddr[0])
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+            raise ValueError(f"Blocked: hostname '{hostname}' resolves to private/reserved IP {addr}")
 
 
 async def execute(
@@ -13,6 +48,11 @@ async def execute(
     format: str = "text",
     **kwargs,
 ) -> ToolResult:
+    try:
+        _validate_url(url)
+    except ValueError as e:
+        return ToolResult(output="", error=str(e), success=False)
+
     try:
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
             resp = await client.get(url, headers={"User-Agent": "MIX/1.0"})
@@ -44,15 +84,14 @@ async def execute(
         jsonld = _extract_jsonld(html)
         if jsonld:
             result["structured_data"] = jsonld
-    except Exception:
-        pass
+    except json.JSONDecodeError:
+        log.warning("Failed to parse JSON-LD block")
 
     return ToolResult(output=json.dumps(result, ensure_ascii=False), success=True)
 
 
 def _extract_text(html: str) -> str:
     text = html
-    import re
     text = re.sub(r"<script[^>]*>.*?</script>", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"<[^>]+>", " ", text)
@@ -61,7 +100,6 @@ def _extract_text(html: str) -> str:
 
 
 def _extract_by_selector(html: str, css: str) -> list[str]:
-    import re
     tag_match = re.match(r"(\w+)", css)
     if not tag_match:
         return []
@@ -72,29 +110,26 @@ def _extract_by_selector(html: str, css: str) -> list[str]:
 
 
 def _extract_links(html: str, base_url: str) -> list[str]:
-    import re
     hrefs = re.findall(r'href=["\']([^"\']+)["\']', html, re.IGNORECASE)
     links = []
     for href in hrefs:
         if href.startswith("http"):
             links.append(href)
         elif href.startswith("/"):
-            from urllib.parse import urljoin
             links.append(urljoin(base_url, href))
     return links
 
 
 def _extract_images(html: str, base_url: str) -> list[str]:
-    import re
     srcs = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', html, re.IGNORECASE)
     return [s if s.startswith("http") else f"{base_url.rstrip('/')}/{s.lstrip('/')}" for s in srcs]
 
 
 def _extract_jsonld(html: str) -> list[dict]:
-    import re
     scripts = re.findall(
         r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
-        html, re.DOTALL | re.IGNORECASE,
+        html,
+        re.DOTALL | re.IGNORECASE,
     )
     results = []
     for script in scripts:
@@ -116,7 +151,7 @@ SCRAPER_DEFINITION = {
                 "url": {"type": "string", "description": "URL to scrape"},
                 "selectors": {
                     "type": "object",
-                    "description": "CSS selectors to extract data, e.g. {\"titles\": \"h2\", \"prices\": \".price\"}",
+                    "description": 'CSS selectors to extract data, e.g. {"titles": "h2", "prices": ".price"}',
                 },
                 "extract_links": {"type": "boolean", "description": "Extract all links from the page"},
                 "extract_images": {"type": "boolean", "description": "Extract all image URLs"},

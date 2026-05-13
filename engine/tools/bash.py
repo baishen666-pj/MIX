@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from engine.tools.types import ToolResult
 
+log = logging.getLogger("mix.tools.bash")
+
 
 async def execute(command: str, timeout: int = 30, cwd: str | None = None, **_: Any) -> ToolResult:
+    log.info("Executing command (timeout=%ds): %s", timeout, command)
+    proc = None
     try:
         proc = await asyncio.create_subprocess_shell(
             command,
@@ -26,6 +31,9 @@ async def execute(command: str, timeout: int = 30, cwd: str | None = None, **_: 
             )
         return ToolResult(output=output)
     except asyncio.TimeoutError:
+        if proc is not None:
+            proc.kill()
+            await proc.wait()
         return ToolResult(output="", error=f"Command timed out after {timeout}s", success=False)
     except Exception as e:
         return ToolResult(output="", error=str(e), success=False)

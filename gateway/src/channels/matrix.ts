@@ -93,9 +93,12 @@ export class MatrixChannel implements ChannelAdapter {
   }
 
   private async callApi(path: string, method: string, body?: unknown): Promise<unknown> {
-    const sep = path.includes("?") ? "&" : "?";
-    const url = `${this.config.homeserverUrl}${path}${sep}access_token=${this.config.accessToken}`;
-    const options: RequestInit = { method, headers: { "Content-Type": "application/json" } };
+    const url = `${this.config.homeserverUrl}${path}`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${this.config.accessToken}`,
+    };
+    const options: RequestInit = { method, headers };
     if (body) options.body = JSON.stringify(body);
     const res = await fetch(url, { ...options, signal: this.abortController?.signal });
     return res.json();

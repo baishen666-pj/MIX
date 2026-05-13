@@ -1,7 +1,8 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import multipart from "@fastify/multipart";
+import type { FastifyInstance } from "fastify";
 import type { GatewayConfig } from "./utils/config.js";
 import { EngineBridge } from "./bridge.js";
 import { ChannelRegistry } from "./channels/registry.js";
@@ -25,6 +26,67 @@ import { ApiKeyAuth } from "./security/api-key.js";
 import { logger } from "./utils/logger.js";
 import { validate, chatRequestSchema, pairingApproveSchema, wsMessageSchema } from "./schemas.js";
 import { MetricsMiddleware } from "./monitoring/metrics.js";
+
+// ---------------------------------------------------------------------------
+// Proxy route helpers
+// ---------------------------------------------------------------------------
+
+type ProxyMethod = "get" | "post" | "put" | "delete";
+
+/**
+ * Generic proxy route that forwards a request to the engine via the bridge
+ * and returns the JSON response. Falls back to `errorFallback` on failure.
+ *
+ * @param app            Fastify instance
+ * @param method         HTTP method
+ * @param path           Route path registered on the gateway
+ * @param enginePathFn   Optional function to build the engine target path from
+ *                       request params/query. When omitted the gateway path is used.
+ * @param errorFallback  Optional fallback value returned instead of {error} on 502.
+ */
+function proxyRoute(
+  bridge: EngineBridge,
+  app: FastifyInstance,
+  method: ProxyMethod,
+  path: string,
+  enginePathFn?: (req: FastifyRequest) => string,
+  errorFallback?: unknown,
+): void {
+  const methodNames: Record<ProxyMethod, keyof EngineBridge> = {
+    get: "proxyGet",
+    post: "proxyPost",
+    put: "proxyPut",
+    delete: "proxyDelete",
+  };
+
+  app[method](path, async (request, reply) => {
+    try {
+      const bridgeFn = bridge[methodNames[method]].bind(bridge);
+      const targetPath = enginePathFn ? enginePathFn(request) : path;
+
+      let res: Response;
+      if (method === "post" || method === "put") {
+        res = await (bridgeFn as (p: string, b: unknown) => Promise<Response>)(targetPath, request.body);
+      } else {
+        res = await (bridgeFn as (p: string) => Promise<Response>)(targetPath);
+      }
+
+      if (res.status === 204) {
+        reply.code(204);
+        return;
+      }
+      return await res.json();
+    } catch (err) {
+      if (errorFallback !== undefined) return errorFallback;
+      reply.code(502);
+      return { error: "Engine unreachable", details: String(err) };
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Server factory
+// ---------------------------------------------------------------------------
 
 export async function createServer(config: GatewayConfig) {
   const app = Fastify({ logger: false });
@@ -161,7 +223,8 @@ export async function createServer(config: GatewayConfig) {
 
   const skipAuth = (url: string) =>
     url === "/api/health" ||
-    url.includes("/webhook") ||
+    url === "/api/webhook" ||
+    url.startsWith("/api/webhook/") ||
     url.startsWith("/ws/");
 
   // Auth + rate limit on all routes except health, webhook, and WS endpoints
@@ -183,12 +246,13 @@ export async function createServer(config: GatewayConfig) {
   });
 
   // Metrics timing hook
+  const metricsStartMap = new WeakMap<FastifyRequest, number>();
   app.addHook("onRequest", (request, _reply, done) => {
-    (request as any).__metricsStart = Date.now();
+    metricsStartMap.set(request, Date.now());
     done();
   });
   app.addHook("onResponse", (request, reply, done) => {
-    const start = (request as any).__metricsStart;
+    const start = metricsStartMap.get(request);
     if (start) {
       const durationMs = Date.now() - start;
       metricsMiddleware.recordTimedRequest(
@@ -200,8 +264,13 @@ export async function createServer(config: GatewayConfig) {
     done();
   });
 
+  const validPolicies = ["open", "pairing", "closed"] as const;
+  const rawPolicy = process.env.DM_POLICY || "pairing";
+  const policy: DmPairingConfig["policy"] = validPolicies.includes(rawPolicy as typeof validPolicies[number])
+    ? rawPolicy as DmPairingConfig["policy"]
+    : "pairing";
   const dmConfig: DmPairingConfig = {
-    policy: (process.env.DM_POLICY as DmPairingConfig["policy"]) || "pairing",
+    policy,
     allowedUsers: process.env.ALLOWED_USERS?.split(",").filter(Boolean) || [],
   };
   const pairing = new DmPairing(dmConfig);
@@ -241,6 +310,10 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
+  // -----------------------------------------------------------------------
+  // Health
+  // -----------------------------------------------------------------------
+
   app.get("/api/health", async () => {
     try {
       const engine = await bridge.health();
@@ -260,34 +333,16 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
-  // --- Config ---
+  // -----------------------------------------------------------------------
+  // Config (GET is simple proxy; PUT forwards body)
+  // -----------------------------------------------------------------------
 
-  app.get("/api/config", async (_request, reply) => {
-    try {
-      const res = await bridge.proxyGet("/api/config");
-      return res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
-    }
-  });
+  proxyRoute(bridge, app, "get", "/api/config");
+  proxyRoute(bridge, app, "put", "/api/config");
 
-  app.put("/api/config", async (request, reply) => {
-    try {
-      const body = request.body as Record<string, unknown>;
-      const res = await fetch(`${bridge["baseUrl"]}/api/config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      return res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
-    }
-  });
-
-  // --- API Docs (proxy to engine OpenAPI/Swagger) ---
+  // -----------------------------------------------------------------------
+  // API Docs (proxy HTML/JSON -- non-trivial header forwarding)
+  // -----------------------------------------------------------------------
 
   app.get("/api/docs", async (_request, reply) => {
     const res = await bridge.proxyGet("/docs");
@@ -305,7 +360,11 @@ export async function createServer(config: GatewayConfig) {
     return body;
   });
 
-  app.get("/api/metrics", async (_request, reply) => {
+  // -----------------------------------------------------------------------
+  // Metrics
+  // -----------------------------------------------------------------------
+
+  app.get("/api/metrics", async () => {
     const gatewayMetrics = metricsMiddleware.getMetrics();
     gatewayMetrics.channels = channels.listChannels();
     try {
@@ -327,6 +386,10 @@ export async function createServer(config: GatewayConfig) {
       return "# Engine unreachable\n";
     }
   });
+
+  // -----------------------------------------------------------------------
+  // Chat (validation + streaming)
+  // -----------------------------------------------------------------------
 
   app.post("/api/chat", async (request, reply) => {
     let body;
@@ -372,6 +435,10 @@ export async function createServer(config: GatewayConfig) {
     reply.raw.end();
   });
 
+  // -----------------------------------------------------------------------
+  // Pairing
+  // -----------------------------------------------------------------------
+
   app.post("/api/pairing/approve", async (request, reply) => {
     let body;
     try {
@@ -388,17 +455,17 @@ export async function createServer(config: GatewayConfig) {
     return { pending: pairing.getPendingPairings() };
   });
 
-  app.get("/api/skills", async (_request, reply) => {
-    try {
-      const res = await bridge.proxyGet("/api/skills");
-      return res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
-    }
-  });
+  // -----------------------------------------------------------------------
+  // Skills
+  // -----------------------------------------------------------------------
 
-  // Plugin management proxies
+  proxyRoute(bridge, app, "get", "/api/skills");
+
+  // -----------------------------------------------------------------------
+  // Plugins (install/uninstall/update use raw fetch with bridge.baseUrl;
+  //           available forwards query params)
+  // -----------------------------------------------------------------------
+
   app.post("/api/plugins/install", async (request, reply) => {
     try {
       const body = request.body as Record<string, unknown>;
@@ -456,15 +523,11 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
-  app.post("/api/memory/search", async (request, reply) => {
-    try {
-      const res = await bridge.proxyPost("/api/memory/search", request.body);
-      return res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
-    }
-  });
+  // -----------------------------------------------------------------------
+  // Memory (search is simple proxy; ingest/upload are non-trivial)
+  // -----------------------------------------------------------------------
+
+  proxyRoute(bridge, app, "post", "/api/memory/search");
 
   app.post("/api/memory/ingest", async (request, reply) => {
     try {
@@ -489,7 +552,7 @@ export async function createServer(config: GatewayConfig) {
         return { error: "No file uploaded" };
       }
       const buffer = await data.toBuffer();
-      const file = new File([buffer], data.filename, { type: data.mimetype });
+      const file = new File([new Uint8Array(buffer)], data.filename, { type: data.mimetype });
       const result = await bridge.uploadFile(file);
       return result;
     } catch (err) {
@@ -498,20 +561,16 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
-  app.get("/api/sessions", async (_request, reply) => {
-    try {
-      const res = await bridge.proxyGet("/api/sessions");
-      return res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
-    }
-  });
+  // -----------------------------------------------------------------------
+  // Sessions
+  // -----------------------------------------------------------------------
+
+  proxyRoute(bridge, app, "get", "/api/sessions");
 
   app.delete("/api/sessions/:sessionId", async (request, reply) => {
     try {
       const { sessionId } = request.params as { sessionId: string };
-      const res = await fetch(`${bridge["baseUrl"]}/api/sessions/${sessionId}`, { method: "DELETE" });
+      const res = await fetch(`${bridge["baseUrl"]}/api/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
       return res.json();
     } catch (err) {
       reply.code(502);
@@ -519,24 +578,17 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
-  app.get("/api/sessions/search", async (request, reply) => {
-    try {
-      const query = request.query as Record<string, string>;
-      const params = new URLSearchParams(query);
-      const res = await bridge.proxyGet(`/api/sessions/search?${params}`);
-      return res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
-    }
-  });
+  proxyRoute(
+    bridge, app, "get", "/api/sessions/search",
+    (req) => `/api/sessions/search?${new URLSearchParams(req.query as Record<string, string>)}`,
+  );
 
   app.get("/api/sessions/:sessionId/export", async (request, reply) => {
     try {
       const { sessionId } = request.params as { sessionId: string };
       const query = request.query as Record<string, string>;
       const params = new URLSearchParams(query);
-      const res = await bridge.proxyGet(`/api/sessions/${sessionId}/export?${params}`);
+      const res = await bridge.proxyGet(`/api/sessions/${encodeURIComponent(sessionId)}/export?${params}`);
       const contentType = res.headers.get("content-type") || "application/json";
       reply.type(contentType);
       if (contentType.includes("text/plain")) {
@@ -549,21 +601,19 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
-  app.get("/api/sessions/:sessionId", async (request, reply) => {
-    try {
-      const { sessionId } = request.params as { sessionId: string };
-      const res = await bridge.proxyGet(`/api/sessions/${sessionId}`);
-      return res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
-    }
-  });
+  proxyRoute(
+    bridge, app, "get", "/api/sessions/:sessionId",
+    (req) => `/api/sessions/${encodeURIComponent((req.params as { sessionId: string }).sessionId)}`,
+  );
+
+  // -----------------------------------------------------------------------
+  // WebSocket
+  // -----------------------------------------------------------------------
 
   app.register(async function (fastify) {
     fastify.get("/ws/chat", { websocket: true }, (socket, req) => {
       if (apiKeyAuth.isEnabled()) {
-        const token = req.query?.token as string | undefined
+        const token = (req.query as Record<string, string | undefined> | undefined)?.token
           || (req.headers["sec-websocket-protocol"] as string | undefined)
           || req.headers.authorization?.replace("Bearer ", "");
         if (!token || !apiKeyAuth.validateKey(token)) {
@@ -595,48 +645,16 @@ export async function createServer(config: GatewayConfig) {
     });
   });
 
-  // --- RAG ---
+  // -----------------------------------------------------------------------
+  // RAG
+  // -----------------------------------------------------------------------
 
-  app.post("/api/rag/collections", async (request, reply) => {
-    try {
-      const res = await bridge.proxyPost("/api/rag/collections", request.body);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.get("/api/rag/collections", async (_request, reply) => {
-    try {
-      const res = await bridge.proxyGet("/api/rag/collections");
-      return await res.json();
-    } catch {
-      return { collections: [] };
-    }
-  });
-
-  app.get("/api/rag/collections/:id", async (request, reply) => {
-    const { id } = request.params as { id: string };
-    try {
-      const res = await bridge.proxyGet(`/api/rag/collections/${id}`);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.delete("/api/rag/collections/:id", async (request, reply) => {
-    const { id } = request.params as { id: string };
-    try {
-      const res = await bridge.proxyDelete(`/api/rag/collections/${id}`);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
+  proxyRoute(bridge, app, "post", "/api/rag/collections");
+  proxyRoute(bridge, app, "get", "/api/rag/collections");
+  proxyRoute(bridge, app, "get", "/api/rag/collections/:id",
+    (req) => `/api/rag/collections/${encodeURIComponent((req.params as { id: string }).id)}`);
+  proxyRoute(bridge, app, "delete", "/api/rag/collections/:id",
+    (req) => `/api/rag/collections/${encodeURIComponent((req.params as { id: string }).id)}`);
 
   app.post("/api/rag/collections/:id/documents", async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -647,12 +665,12 @@ export async function createServer(config: GatewayConfig) {
         return { error: "No file uploaded" };
       }
       const buffer = await data.toBuffer();
-      const file = new File([buffer], data.filename, { type: data.mimetype });
+      const file = new File([new Uint8Array(buffer)], data.filename, { type: data.mimetype });
       const formData = new FormData();
       formData.append("file", file);
       const res = await fetch(
-        `${bridge.getBaseUrl()}/api/rag/collections/${id}/documents`,
-        { method: "POST", body: formData }
+        `${bridge.getBaseUrl()}/api/rag/collections/${encodeURIComponent(id)}/documents`,
+        { method: "POST", body: formData },
       );
       return await res.json();
     } catch (err) {
@@ -661,102 +679,27 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
-  app.get("/api/rag/collections/:id/documents", async (request, reply) => {
-    const { id } = request.params as { id: string };
-    try {
-      const res = await bridge.proxyGet(`/api/rag/collections/${id}/documents`);
-      return await res.json();
-    } catch {
-      return { documents: [] };
-    }
-  });
+  proxyRoute(bridge, app, "get", "/api/rag/collections/:id/documents",
+    (req) => `/api/rag/collections/${encodeURIComponent((req.params as { id: string }).id)}/documents`);
+  proxyRoute(bridge, app, "delete", "/api/rag/documents/:docId",
+    (req) => `/api/rag/documents/${encodeURIComponent((req.params as { docId: string }).docId)}`);
+  proxyRoute(bridge, app, "post", "/api/rag/query");
 
-  app.delete("/api/rag/documents/:docId", async (request, reply) => {
-    const { docId } = request.params as { docId: string };
-    try {
-      const res = await bridge.proxyDelete(`/api/rag/documents/${docId}`);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
+  // -----------------------------------------------------------------------
+  // Tools Enhanced
+  // -----------------------------------------------------------------------
 
-  app.post("/api/rag/query", async (request, reply) => {
-    try {
-      const res = await bridge.proxyPost("/api/rag/query", request.body);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
+  proxyRoute(bridge, app, "post", "/api/tools/dynamic");
+  proxyRoute(bridge, app, "delete", "/api/tools/dynamic/:name",
+    (req) => `/api/tools/dynamic/${encodeURIComponent((req.params as { name: string }).name)}`);
+  proxyRoute(bridge, app, "post", "/api/tools/chain");
+  proxyRoute(bridge, app, "get", "/api/tools/approval/pending", undefined, { requests: [] });
+  proxyRoute(bridge, app, "post", "/api/tools/approval/:requestId/approve",
+    (req) => `/api/tools/approval/${encodeURIComponent((req.params as { requestId: string }).requestId)}/approve`);
+  proxyRoute(bridge, app, "post", "/api/tools/approval/:requestId/reject",
+    (req) => `/api/tools/approval/${encodeURIComponent((req.params as { requestId: string }).requestId)}/reject`);
 
-  // --- Tools Enhanced ---
-
-  app.post("/api/tools/dynamic", async (request, reply) => {
-    try {
-      const res = await bridge.proxyPost("/api/tools/dynamic", request.body);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.delete("/api/tools/dynamic/:name", async (request, reply) => {
-    const { name } = request.params as { name: string };
-    try {
-      const res = await bridge.proxyDelete(`/api/tools/dynamic/${name}`);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.post("/api/tools/chain", async (request, reply) => {
-    try {
-      const res = await bridge.proxyPost("/api/tools/chain", request.body);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.get("/api/tools/approval/pending", async (_request, reply) => {
-    try {
-      const res = await bridge.proxyGet("/api/tools/approval/pending");
-      return await res.json();
-    } catch {
-      return { requests: [] };
-    }
-  });
-
-  app.post("/api/tools/approval/:requestId/approve", async (request, reply) => {
-    const { requestId } = request.params as { requestId: string };
-    try {
-      const res = await bridge.proxyPost(`/api/tools/approval/${requestId}/approve`, {});
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.post("/api/tools/approval/:requestId/reject", async (request, reply) => {
-    const { requestId } = request.params as { requestId: string };
-    try {
-      const res = await bridge.proxyPost(`/api/tools/approval/${requestId}/reject`, request.body);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.get("/api/tools/history", async (request, reply) => {
+  app.get("/api/tools/history", async (request) => {
     const query = (request.query as Record<string, string>) || {};
     const params = new URLSearchParams(query).toString();
     try {
@@ -767,110 +710,29 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
-  app.get("/api/tools/history/stats", async (_request, reply) => {
-    try {
-      const res = await bridge.proxyGet("/api/tools/history/stats");
-      return await res.json();
-    } catch {
-      return { total: 0, tools: {}, avg_time_ms: 0 };
-    }
-  });
+  proxyRoute(bridge, app, "get", "/api/tools/history/stats", undefined, { total: 0, tools: {}, avg_time_ms: 0 });
 
-  // --- Agents ---
+  // -----------------------------------------------------------------------
+  // Agents
+  // -----------------------------------------------------------------------
 
-  app.get("/api/agents", async (_request, reply) => {
-    try {
-      const res = await bridge.proxyGet("/api/agents");
-      return await res.json();
-    } catch {
-      return { agents: [{ name: "main", channels: [], model: "default" }] };
-    }
-  });
+  proxyRoute(bridge, app, "get", "/api/agents", undefined, { agents: [{ name: "main", channels: [], model: "default" }] });
+  proxyRoute(bridge, app, "post", "/api/agents");
+  proxyRoute(bridge, app, "get", "/api/agents/roles");
+  proxyRoute(bridge, app, "get", "/api/agents/collaborations", undefined, { plans: [] });
+  proxyRoute(bridge, app, "post", "/api/agents/collaborate");
+  proxyRoute(bridge, app, "get", "/api/agents/collaborate/:planId",
+    (req) => `/api/agents/collaborate/${encodeURIComponent((req.params as { planId: string }).planId)}`);
+  proxyRoute(bridge, app, "get", "/api/agents/:name",
+    (req) => `/api/agents/${encodeURIComponent((req.params as { name: string }).name)}`);
+  proxyRoute(bridge, app, "put", "/api/agents/:name",
+    (req) => `/api/agents/${encodeURIComponent((req.params as { name: string }).name)}`);
+  proxyRoute(bridge, app, "delete", "/api/agents/:name",
+    (req) => `/api/agents/${encodeURIComponent((req.params as { name: string }).name)}`);
 
-  app.post("/api/agents", async (request, reply) => {
-    try {
-      const res = await bridge.proxyPost("/api/agents", request.body);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.get("/api/agents/roles", async (_request, reply) => {
-    try {
-      const res = await bridge.proxyGet("/api/agents/roles");
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.get("/api/agents/collaborations", async (_request, reply) => {
-    try {
-      const res = await bridge.proxyGet("/api/agents/collaborations");
-      return await res.json();
-    } catch (err) {
-      return { plans: [] };
-    }
-  });
-
-  app.post("/api/agents/collaborate", async (request, reply) => {
-    try {
-      const res = await bridge.proxyPost("/api/agents/collaborate", request.body);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.get("/api/agents/collaborate/:planId", async (request, reply) => {
-    const { planId } = request.params as { planId: string };
-    try {
-      const res = await bridge.proxyGet(`/api/agents/collaborate/${planId}`);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.get("/api/agents/:name", async (request, reply) => {
-    const { name } = request.params as { name: string };
-    try {
-      const res = await bridge.proxyGet(`/api/agents/${name}`);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.put("/api/agents/:name", async (request, reply) => {
-    const { name } = request.params as { name: string };
-    try {
-      const res = await bridge.proxyPut(`/api/agents/${name}`, request.body);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  app.delete("/api/agents/:name", async (request, reply) => {
-    const { name } = request.params as { name: string };
-    try {
-      const res = await bridge.proxyDelete(`/api/agents/${name}`);
-      return await res.json();
-    } catch (err) {
-      reply.code(502);
-      return { error: String(err) };
-    }
-  });
-
-  // --- Voice ---
+  // -----------------------------------------------------------------------
+  // Voice (file upload + streaming -- non-trivial)
+  // -----------------------------------------------------------------------
 
   app.post("/api/voice/stt", async (request, reply) => {
     try {
@@ -880,7 +742,7 @@ export async function createServer(config: GatewayConfig) {
         return { error: "No audio file uploaded" };
       }
       const buffer = await data.toBuffer();
-      const file = new File([buffer], data.filename, { type: data.mimetype });
+      const file = new File([new Uint8Array(buffer)], data.filename, { type: data.mimetype });
       const result = await bridge.transcribeAudio(file);
       return result;
     } catch (err) {
@@ -921,6 +783,10 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
+  // -----------------------------------------------------------------------
+  // Channel webhooks
+  // -----------------------------------------------------------------------
+
   if (wechatAdapter) {
     app.post("/api/wechat/webhook", async (request, reply) => {
       const body = request.body as Record<string, unknown>;
@@ -929,7 +795,6 @@ export async function createServer(config: GatewayConfig) {
     });
   }
 
-  // Webhook routes for push-based channels
   const lineAdapter = channels.getAdapter("line") as InstanceType<typeof LineChannel> | undefined;
   if (lineAdapter) {
     app.post("/api/line/webhook", async (request) => {

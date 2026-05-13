@@ -3,7 +3,13 @@ from __future__ import annotations
 import pytest
 
 from engine.tools.calculator import execute as calc_execute
-from engine.tools.code_execution import execute as code_execute, list_languages
+from engine.tools.code_execution import (
+    _is_sandbox_available,
+    list_languages,
+)
+from engine.tools.code_execution import (
+    execute as code_execute,
+)
 from engine.tools.registry import ToolRegistry
 
 
@@ -50,15 +56,23 @@ async def test_calculator_unsafe():
 @pytest.mark.asyncio
 async def test_code_execute_python():
     result = await code_execute("python", "print(2 + 2)")
-    assert result.success
-    assert "4" in result.output
+    if _is_sandbox_available():
+        assert result.success
+        assert "4" in result.output
+    else:
+        assert not result.success
+        assert "sandbox" in result.error.lower()
 
 
 @pytest.mark.asyncio
 async def test_code_execute_javascript():
     result = await code_execute("javascript", "console.log(2 + 2)")
-    assert result.success
-    assert "4" in result.output
+    if _is_sandbox_available():
+        assert result.success
+        assert "4" in result.output
+    else:
+        assert not result.success
+        assert "sandbox" in result.error.lower()
 
 
 @pytest.mark.asyncio
@@ -71,8 +85,12 @@ async def test_code_execute_unsupported():
 @pytest.mark.asyncio
 async def test_code_execute_error():
     result = await code_execute("python", "raise ValueError('test')")
-    assert not result.success
-    assert "ValueError" in result.error
+    if _is_sandbox_available():
+        assert not result.success
+        assert "ValueError" in result.error
+    else:
+        assert not result.success
+        assert "sandbox" in result.error.lower()
 
 
 def test_list_languages():

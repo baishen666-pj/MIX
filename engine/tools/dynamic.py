@@ -1,15 +1,27 @@
 from __future__ import annotations
 
+import ast
 import asyncio
 import json
-import uuid
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-import logging
-
 log = logging.getLogger("mix.dynamic_tools")
+
+_BLOCKED_IMPORTS = frozenset(
+    {
+        "os",
+        "sys",
+        "subprocess",
+        "socket",
+        "shutil",
+        "pathlib",
+        "ctypes",
+        "multiprocessing",
+    }
+)
 
 
 @dataclass
@@ -60,7 +72,6 @@ class DynamicToolRegistry:
 
     def list_dynamic_tools_names(self) -> list[str]:
         return list(self._tools.keys())
-        return list(self._tools.values())
 
     def get_definition(self, name: str) -> DynamicToolDef | None:
         return self._tools.get(name)
@@ -83,19 +94,72 @@ class DynamicToolRegistry:
         return [d.to_openai_definition() for d in self._tools.values()]
 
     def _compile_handler(self, code: str) -> Callable:
+        self._validate_code(code)
+
         async def _handler(**kwargs: Any) -> str:
-            proc = await asyncio.create_subprocess_exec(
-                "python3", "-c", code,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdin_data = json.dumps(kwargs).encode()
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input=stdin_data), timeout=30
-            )
-            if proc.returncode != 0:
-                raise RuntimeError(stderr.decode())
-            return stdout.decode()
+            proc = None
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    "python3",
+                    "-c",
+                    code,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdin_data = json.dumps(kwargs).encode()
+                stdout, stderr = await asyncio.wait_for(proc.communicate(input=stdin_data), timeout=30)
+                if proc.returncode != 0:
+                    raise RuntimeError(stderr.decode())
+                return stdout.decode()
+            except asyncio.TimeoutError:
+                if proc is not None:
+                    proc.kill()
+                    await proc.wait()
+                raise RuntimeError("Dynamic tool execution timed out after 30s")
 
         return _handler
+
+    def _validate_code(self, code: str) -> None:
+        """Reject dynamic tool code that imports dangerous modules or uses unsafe builtins."""
+        try:
+            tree = ast.parse(code)
+        except SyntaxError as exc:
+            raise ValueError(f"Invalid Python syntax in handler code: {exc}") from exc
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name.split(".")[0] for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module.split(".")[0]] if node.module else []
+            else:
+                names = []
+
+            blocked = _BLOCKED_IMPORTS.intersection(names)
+            if blocked:
+                raise ValueError(f"Handler code imports blocked module(s): {', '.join(sorted(blocked))}")
+
+            if isinstance(node, (ast.Call,)):
+                func = node.func
+                if isinstance(func, ast.Name) and func.id in (
+                    "__import__",
+                    "eval",
+                    "exec",
+                    "compile",
+                    "open",
+                ):
+                    raise ValueError(f"Handler code uses blocked builtin: {func.id}")
+                if (
+                    isinstance(func, ast.Attribute)
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id == "builtins"
+                    and func.attr
+                    in (
+                        "__import__",
+                        "eval",
+                        "exec",
+                        "compile",
+                        "open",
+                    )
+                ):
+                    raise ValueError(f"Handler code uses blocked builtin: builtins.{func.attr}")

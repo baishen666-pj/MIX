@@ -3,13 +3,18 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from engine.sandbox.types import SandboxBackend
-
 
 class LocalBackend:
+    """Execute commands directly on the host with NO isolation or sandboxing.
+
+    WARNING: This backend provides no security boundary. Commands run with the
+    full privileges of the host process. Use DockerBackend for untrusted input.
+    """
+
     name = "local"
 
     async def execute(self, command: str, timeout: int = 30, cwd: str | None = None) -> dict[str, Any]:
+        proc = None
         try:
             proc = await asyncio.create_subprocess_shell(
                 command,
@@ -25,6 +30,9 @@ class LocalBackend:
                 "timed_out": False,
             }
         except asyncio.TimeoutError:
+            if proc is not None:
+                proc.kill()
+                await proc.wait()
             return {
                 "stdout": "",
                 "stderr": f"Command timed out after {timeout}s",
