@@ -88,6 +88,59 @@ const zh: Record<TranslationKey, string> = {
   "plugin.source": "来源",
   "plugin.version": "版本",
   "plugin.description": "描述",
+
+  /* Empty States */
+  "empty.noResults": "无结果",
+  "empty.tryDifferent": "尝试不同的搜索词",
+  "empty.startConversation": "开始对话后会显示会话",
+  "empty.noHistoryYet": "暂无执行历史",
+  "empty.historyWillAppear": "工具执行记录将在此显示",
+  "empty.noChains": "暂无链式执行记录",
+  "empty.chainsWillAppear": "多步骤工具链将在此显示",
+  "empty.noPending": "无待审批请求",
+  "empty.allHandled": "所有工具请求已处理",
+  "empty.loadingSkills": "加载技能中...",
+  "empty.skillsLoading": "请稍候，技能正在加载",
+  "empty.installPlugin": "安装插件或配置技能以开始使用",
+
+  /* Sidebar */
+  "sidebar.sessions": "会话",
+  "sidebar.newSession": "新建会话",
+  "sidebar.expandSidebar": "展开侧边栏",
+  "sidebar.collapseSidebar": "收起侧边栏",
+  "sidebar.searchSessions": "搜索会话...",
+  "sidebar.exportSession": "导出会话",
+  "sidebar.exportAsMarkdown": "导出为 Markdown",
+  "sidebar.deleteSession": "删除会话",
+
+  /* Tools */
+  "tools.history": "历史",
+  "tools.chains": "链",
+  "tools.approval": "审批",
+  "tools.totalExecutions": "总执行次数",
+  "tools.successRate": "成功率",
+  "tools.avgTime": "平均耗时",
+  "tools.approve": "批准",
+  "tools.reject": "拒绝",
+  "tools.safe": "安全",
+  "tools.moderate": "中等",
+  "tools.dangerous": "危险",
+
+  /* Agents */
+  "agents.createAgent": "创建代理",
+  "agents.startCollab": "开始协作",
+  "agents.selectRole": "选择角色",
+  "agents.pattern": "模式",
+
+  /* Knowledge */
+  "knowledge.collections": "集合",
+  "knowledge.documents": "文档",
+  "knowledge.query": "查询",
+
+  /* Dashboard */
+  "dashboard.metrics": "指标",
+  "dashboard.llmStats": "LLM 统计",
+  "dashboard.systemHealth": "系统健康",
 };
 
 export default zh;

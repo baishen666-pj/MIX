@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { EmptyState } from "./EmptyState";
 import { s } from "../styles";
+import { useLocale } from "../i18n";
 
 interface Session {
   id: string;
@@ -19,6 +20,7 @@ export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSe
   const [sessions, setSessions] = useState<Session[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const { t } = useLocale();
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -70,10 +72,10 @@ export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSe
   if (collapsed) {
     return (
       <div style={s.sidebarCollapsed}>
-        <button onClick={() => setCollapsed(false)} style={s.sidebarToggle} aria-label="Expand sidebar">
+        <button onClick={() => setCollapsed(false)} style={s.sidebarToggle} aria-label={t("sidebar.expandSidebar")}>
           &#9776;
         </button>
-        <button onClick={onNewSession} style={s.sidebarToggle} aria-label="New session">
+        <button onClick={onNewSession} style={s.sidebarToggle} aria-label={t("sidebar.newSession")}>
           +
         </button>
       </div>
@@ -83,27 +85,27 @@ export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSe
   return (
     <div style={s.sidebar}>
       <div style={s.sidebarHeader}>
-        <span style={{ fontWeight: 600, fontSize: 14 }}>Sessions</span>
+        <span style={{ fontWeight: 600, fontSize: 14 }}>{t("sidebar.sessions")}</span>
         <div style={{ display: "flex", gap: 4 }}>
-          <button onClick={onNewSession} style={s.sidebarToggle} aria-label="New session">+</button>
-          <button onClick={() => setCollapsed(true)} style={s.sidebarToggle} aria-label="Collapse sidebar">
+          <button onClick={onNewSession} style={s.sidebarToggle} aria-label={t("sidebar.newSession")}>+</button>
+          <button onClick={() => setCollapsed(true)} style={s.sidebarToggle} aria-label={t("sidebar.collapseSidebar")}>
             &#9664;
           </button>
         </div>
       </div>
       <input
         type="text"
-        placeholder="Search sessions..."
+        placeholder={t("sidebar.searchSessions")}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         style={s.searchInput}
-        aria-label="Search sessions"
+        aria-label={t("sidebar.searchSessions")}
       />
       <div style={s.sidebarList}>
         {sessions.length === 0 && (
           searchQuery
-            ? <EmptyState icon="🔍" title="No results" description="Try a different search term" />
-            : <EmptyState icon="💬" title="No sessions yet" description="Start a conversation to see sessions here" />
+            ? <EmptyState icon="🔍" title={t("empty.noResults")} description={t("empty.tryDifferent")} />
+            : <EmptyState icon="💬" title={t("chat.noSessions")} description={t("empty.startConversation")} />
         )}
         {sessions.map((session) => (
           <div
@@ -119,15 +121,15 @@ export function ConversationSidebar({ currentSessionId, onSelectSession, onNewSe
               <button
                 onClick={(e) => handleExport(session.id, e)}
                 style={s.sidebarActionBtn}
-                aria-label="Export session"
-                title="Export as Markdown"
+                aria-label={t("sidebar.exportSession")}
+                title={t("sidebar.exportAsMarkdown")}
               >
                 &#8615;
               </button>
               <button
                 onClick={(e) => handleDelete(session.id, e)}
                 style={s.sidebarDeleteBtn}
-                aria-label="Delete session"
+                aria-label={t("sidebar.deleteSession")}
               >
                 &#10005;
               </button>

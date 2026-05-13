@@ -1,9 +1,11 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } from "electron";
 import { join } from "path";
 import { electronApp, is } from "@electron-toolkit/utils";
 import { ProcessManager } from "./process-manager";
 
 let mainWindow: BrowserWindow | null = null;
+let splashWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 const processManager = new ProcessManager();
 
 process.on("uncaughtException", (err) => {
@@ -14,7 +16,36 @@ process.on("unhandledRejection", (reason) => {
   console.error("[MAIN UNHANDLED REJECTION]", reason);
 });
 
-function createWindow(): void {
+function createSplashWindow(): BrowserWindow {
+  splashWindow = new BrowserWindow({
+    width: 420,
+    height: 320,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    center: true,
+    alwaysOnTop: true,
+    show: false,
+    webPreferences: { sandbox: true },
+  });
+
+  splashWindow.loadFile(join(__dirname, "../resources/splash.html"));
+  splashWindow.on("ready-to-show", () => splashWindow?.show());
+  splashWindow.on("closed", () => { splashWindow = null; });
+  return splashWindow;
+}
+
+function sendToSplash(status: string, isError?: boolean): void {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  splashWindow.webContents.executeJavaScript(`
+    document.getElementById('status').textContent = ${JSON.stringify(status)};
+    ${isError ? `document.getElementById('error').textContent = ${JSON.stringify(status)};
+                 document.getElementById('error').style.display = 'block';
+                 document.getElementById('spinner').style.display = 'none';` : ''}
+  `).catch(() => { /* splash may have closed */ });
+}
+
+function createMainWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 750,
@@ -30,7 +61,17 @@ function createWindow(): void {
   });
 
   mainWindow.on("ready-to-show", () => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+    }
     mainWindow!.show();
+  });
+
+  mainWindow.on("close", (e) => {
+    if (process.platform === "darwin") {
+      e.preventDefault();
+      mainWindow?.hide();
+    }
   });
 
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
@@ -47,6 +88,19 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
+}
+
+function setupTray(): void {
+  const icon = nativeImage.createEmpty();
+  tray = new Tray(icon);
+  const contextMenu = Menu.buildFromTemplate([
+    { label: "Show MIX", click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+    { type: "separator" },
+    { label: "Quit", click: () => { processManager.stopAll(); app.quit(); } },
+  ]);
+  tray.setToolTip("MIX Agent");
+  tray.setContextMenu(contextMenu);
+  tray.on("click", () => { mainWindow?.show(); mainWindow?.focus(); });
 }
 
 function setupIPC(): void {
@@ -68,6 +122,11 @@ function setupIPC(): void {
 
 function forwardStatusToRenderer(): void {
   processManager.onStatus((status) => {
+    if (status.phase === "starting") {
+      sendToSplash(status.message);
+    } else if (status.phase === "error") {
+      sendToSplash(status.message, true);
+    }
     mainWindow?.webContents.send("process-status", status);
   });
 }
@@ -77,27 +136,35 @@ app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.mix.desktop");
 
   setupIPC();
-  createWindow();
+  createSplashWindow();
   forwardStatusToRenderer();
+  if (process.platform !== "darwin") {
+    setupTray();
+  }
 
   try {
     await processManager.startAll();
+    createMainWindow();
   } catch (err) {
     console.error("[STARTUP FAILED]", err);
+    sendToSplash(`Startup failed: ${(err as Error).message}`, true);
   }
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    else mainWindow?.show();
   });
 });
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     processManager.stopAll();
+    tray?.destroy();
     app.quit();
   }
 });
 
 app.on("before-quit", () => {
   processManager.stopAll();
+  tray?.destroy();
 });

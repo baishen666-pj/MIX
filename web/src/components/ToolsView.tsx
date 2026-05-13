@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { EmptyState } from "./EmptyState";
+import { useLocale } from "../i18n";
 
 interface ToolRecord {
   id: string;
@@ -25,6 +26,7 @@ interface ApprovalReq {
 type ToolViewTab = "tools" | "history" | "approval" | "chains";
 
 export function ToolsView() {
+  const { t } = useLocale();
   const [viewTab, setViewTab] = useState<ToolViewTab>("tools");
   const [tools, setTools] = useState<string[]>([]);
   const [definitions, setDefinitions] = useState<unknown[]>([]);
@@ -148,7 +150,7 @@ export function ToolsView() {
       {viewTab === "history" && (
         <div>
           {history.length === 0 && (
-            <EmptyState icon="📋" title="No execution history yet" description="Tool executions will appear here as they are used" />
+            <EmptyState icon="📋" title={t("empty.noHistoryYet")} description={t("empty.historyWillAppear")} />
           )}
           {history.map((r) => (
             <div key={r.id} className="mix-card" style={{ marginBottom: 8, padding: 12 }}>
@@ -176,7 +178,7 @@ export function ToolsView() {
           {(() => {
             const chainRecords = history.filter((r) => r.chain_id);
             if (chainRecords.length === 0) {
-              return <EmptyState icon="🔗" title="No chain executions recorded yet" description="Multi-step tool chains will appear here" />;
+              return <EmptyState icon="🔗" title={t("empty.noChains")} description={t("empty.chainsWillAppear")} />;
             }
             const groups: Record<string, ToolRecord[]> = {};
             for (const r of chainRecords) {
@@ -237,7 +239,7 @@ export function ToolsView() {
       {viewTab === "approval" && (
         <div>
           {pending.length === 0 && (
-            <EmptyState icon="✅" title="No pending approvals" description="All tool requests have been handled" />
+            <EmptyState icon="✅" title={t("empty.noPending")} description={t("empty.allHandled")} />
           )}
           {pending.map((req) => (
             <div key={req.id} className="mix-card" style={{ marginBottom: 8, padding: 12 }}>

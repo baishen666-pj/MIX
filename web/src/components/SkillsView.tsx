@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import type { Skill } from "../types";
 import { EmptyState } from "./EmptyState";
+import { useLocale } from "../i18n";
 import { s } from "../styles";
 
 interface InstalledPlugin {
@@ -19,6 +20,7 @@ interface SkillsViewProps {
 type SkillsTab = "skills" | "install";
 
 export function SkillsView({ skills, loading, error }: SkillsViewProps) {
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<SkillsTab>("skills");
   const [runningSkill, setRunningSkill] = useState<string | null>(null);
   const [skillArgs, setSkillArgs] = useState("");
@@ -161,10 +163,10 @@ export function SkillsView({ skills, loading, error }: SkillsViewProps) {
 
       {activeTab === "skills" && (
         <>
-          {loading && <EmptyState icon="⚙" title="Loading skills..." description="Please wait while skills are loaded" />}
+          {loading && <EmptyState icon="⚙" title={t("empty.loadingSkills")} description={t("empty.skillsLoading")} />}
           {error && <div style={s.error}>{error}</div>}
           {!loading && !error && skills.length === 0 && (
-            <EmptyState icon="⚡" title="No skills loaded" description="Install a plugin or configure skills to get started" />
+            <EmptyState icon="⚡" title={t("skills.noSkills")} description={t("empty.installPlugin")} />
           )}
           {skills.map((sk) => (
             <div key={sk.name} style={s.card} className="card-hover">

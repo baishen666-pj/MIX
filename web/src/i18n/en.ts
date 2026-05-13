@@ -86,6 +86,59 @@ const en = {
   "plugin.source": "Source",
   "plugin.version": "Version",
   "plugin.description": "Description",
+
+  /* Empty States */
+  "empty.noResults": "No results",
+  "empty.tryDifferent": "Try a different search term",
+  "empty.startConversation": "Start a conversation to see sessions here",
+  "empty.noHistoryYet": "No execution history yet",
+  "empty.historyWillAppear": "Tool executions will appear here as they are used",
+  "empty.noChains": "No chain executions recorded yet",
+  "empty.chainsWillAppear": "Multi-step tool chains will appear here",
+  "empty.noPending": "No pending approvals",
+  "empty.allHandled": "All tool requests have been handled",
+  "empty.loadingSkills": "Loading skills...",
+  "empty.skillsLoading": "Please wait while skills are loaded",
+  "empty.installPlugin": "Install a plugin or configure skills to get started",
+
+  /* Sidebar */
+  "sidebar.sessions": "Sessions",
+  "sidebar.newSession": "New session",
+  "sidebar.expandSidebar": "Expand sidebar",
+  "sidebar.collapseSidebar": "Collapse sidebar",
+  "sidebar.searchSessions": "Search sessions...",
+  "sidebar.exportSession": "Export session",
+  "sidebar.exportAsMarkdown": "Export as Markdown",
+  "sidebar.deleteSession": "Delete session",
+
+  /* Tools */
+  "tools.history": "History",
+  "tools.chains": "Chains",
+  "tools.approval": "Approval",
+  "tools.totalExecutions": "Total Executions",
+  "tools.successRate": "Success Rate",
+  "tools.avgTime": "Avg Time",
+  "tools.approve": "Approve",
+  "tools.reject": "Reject",
+  "tools.safe": "safe",
+  "tools.moderate": "moderate",
+  "tools.dangerous": "dangerous",
+
+  /* Agents */
+  "agents.createAgent": "Create Agent",
+  "agents.startCollab": "Start Collaboration",
+  "agents.selectRole": "Select role",
+  "agents.pattern": "Pattern",
+
+  /* Knowledge */
+  "knowledge.collections": "Collections",
+  "knowledge.documents": "Documents",
+  "knowledge.query": "Query",
+
+  /* Dashboard */
+  "dashboard.metrics": "Metrics",
+  "dashboard.llmStats": "LLM Stats",
+  "dashboard.systemHealth": "System Health",
 } as const;
 
 export type TranslationKey = keyof typeof en;
