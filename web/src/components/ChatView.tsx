@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { Message } from "../types";
 import { MessageBubble } from "./MessageBubble";
+import { useVoiceInput } from "../hooks/useVoiceInput";
 import { s } from "../styles";
 
 interface ChatViewProps {
@@ -14,6 +15,12 @@ export function ChatView({ messages, connected, onSend, thinking }: ChatViewProp
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleTranscription = (text: string) => {
+    if (text.trim()) onSend(text.trim());
+  };
+
+  const { recording, startRecording, stopRecording, error: voiceError } = useVoiceInput(handleTranscription);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,6 +43,11 @@ export function ChatView({ messages, connected, onSend, thinking }: ChatViewProp
     }
   };
 
+  const toggleVoice = () => {
+    if (recording) stopRecording();
+    else startRecording();
+  };
+
   return (
     <>
       <main style={s.messages}>
@@ -52,9 +64,19 @@ export function ChatView({ messages, connected, onSend, thinking }: ChatViewProp
             ))}
           </div>
         )}
+        {voiceError && <div style={{ color: "var(--color-error, red)", textAlign: "center", padding: 4, fontSize: "var(--font-size-sm)" }}>{voiceError}</div>}
         <div ref={messagesEndRef} />
       </main>
       <footer style={s.inputBar}>
+        <button
+          style={recording ? s.voiceBtnActive : s.voiceBtn}
+          onClick={toggleVoice}
+          disabled={!connected}
+          title={recording ? "Stop recording" : "Voice input"}
+          aria-label={recording ? "Stop recording" : "Voice input"}
+        >
+          {recording ? "●" : "🎤"}
+        </button>
         <textarea
           ref={textareaRef}
           style={s.textarea}

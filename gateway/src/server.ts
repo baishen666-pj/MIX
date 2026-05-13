@@ -261,6 +261,24 @@ export async function createServer(config: GatewayConfig) {
     }
   });
 
+  // --- API Docs (proxy to engine OpenAPI/Swagger) ---
+
+  app.get("/api/docs", async (_request, reply) => {
+    const res = await bridge.proxyGet("/docs");
+    const body = await res.text();
+    reply.headers(Object.fromEntries(res.headers.entries()));
+    reply.type("text/html");
+    return body;
+  });
+
+  app.get("/api/openapi.json", async (_request, reply) => {
+    const res = await bridge.proxyGet("/openapi.json");
+    const body = await res.text();
+    reply.headers(Object.fromEntries(res.headers.entries()));
+    reply.type("application/json");
+    return body;
+  });
+
   app.get("/api/metrics", async (_request, reply) => {
     const gatewayMetrics = metricsMiddleware.getMetrics();
     gatewayMetrics.channels = channels.listChannels();

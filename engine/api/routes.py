@@ -17,6 +17,8 @@ from engine.api.schemas import (
     OrchestrateRequest,
     TTSRequest,
     STTResponse,
+    ModelRouteRequest,
+    ModelRouteResponse,
 )
 from engine.agent.loop import AgentLoop
 from engine.memory.store import MemoryStore
@@ -390,6 +392,38 @@ async def agents_orchestrate(req: OrchestrateRequest):
     subtasks = await _decomposer.decompose(req.task)
     result = await _orchestrator.execute_plan(subtasks, _agent_loop)
     return result
+
+
+# --- Model Routing ---
+
+@router.post("/model/route", response_model=ModelRouteResponse)
+async def model_route(req: ModelRouteRequest):
+    from engine.agent.model_router import route_model, classify_complexity
+    tier = route_model(req.message, override_tier=req.tier)
+    tier_name = req.tier or classify_complexity(req.message)
+    return ModelRouteResponse(
+        tier=tier_name,
+        provider=tier.provider,
+        model=tier.model,
+        context_window=tier.context_window,
+        max_output_tokens=tier.max_output_tokens,
+    )
+
+
+@router.get("/model/tiers")
+async def model_tiers():
+    from engine.agent.model_router import MODEL_TIERS
+    return {
+        "tiers": {
+            name: {
+                "provider": t.provider,
+                "model": t.model,
+                "context_window": t.context_window,
+                "max_output_tokens": t.max_output_tokens,
+            }
+            for name, t in MODEL_TIERS.items()
+        }
+    }
 
 
 # --- MCP ---

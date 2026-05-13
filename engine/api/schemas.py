@@ -77,3 +77,16 @@ class TTSRequest(BaseModel):
 
 class STTResponse(BaseModel):
     text: str
+
+
+class ModelRouteRequest(BaseModel):
+    message: str
+    tier: str | None = None
+
+
+class ModelRouteResponse(BaseModel):
+    tier: str
+    provider: str
+    model: str
+    context_window: int
+    max_output_tokens: int
