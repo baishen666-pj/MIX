@@ -14,12 +14,14 @@ class DockerBackend:
         cpus: str = "1",
         pids_limit: int = 64,
         timeout: int = 60,
+        max_output_bytes: int = 10_000,
     ) -> None:
         self.image = image
         self.memory = memory
         self.cpus = cpus
         self.pids_limit = pids_limit
         self.default_timeout = timeout
+        self.max_output_bytes = max_output_bytes
 
     async def execute(self, command: str, timeout: int = 30, cwd: str | None = None) -> dict[str, Any]:
         docker_cmd = [
@@ -52,9 +54,15 @@ class DockerBackend:
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout or self.default_timeout)
+            stdout_str = stdout.decode(errors="replace")
+            stderr_str = stderr.decode(errors="replace")
+            if len(stdout_str) > self.max_output_bytes:
+                stdout_str = stdout_str[: self.max_output_bytes] + "\n... [truncated]"
+            if len(stderr_str) > self.max_output_bytes:
+                stderr_str = stderr_str[: self.max_output_bytes] + "\n... [truncated]"
             return {
-                "stdout": stdout.decode(errors="replace"),
-                "stderr": stderr.decode(errors="replace"),
+                "stdout": stdout_str,
+                "stderr": stderr_str,
                 "exit_code": proc.returncode,
                 "timed_out": False,
             }
