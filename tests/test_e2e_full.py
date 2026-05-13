@@ -267,3 +267,62 @@ class TestVoicePathE2E:
         resp = await e2e_client.post("/api/voice/tts", json={"text": "Hello", "voice": "alloy"})
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
+
+
+# ---------------------------------------------------------------------------
+# SSE Streaming
+# ---------------------------------------------------------------------------
+
+class TestSSEStreamE2E:
+
+    @pytest.mark.asyncio
+    async def test_sse_chat_stream(self, tmp_path: Path) -> None:
+        config = make_config(tmp_path)
+        app = create_app(config)
+        from engine.api import routes as routes_mod
+
+        chunks_sent = []
+
+        async def fake_stream(**kwargs):
+            for text in ["Hello", " world", "!"]:
+                chunks_sent.append(text)
+                yield {"delta": text, "done": False}
+            yield {"delta": "", "done": True}
+
+        routes_mod._agent_loop.provider.stream = fake_stream
+        if routes_mod._memory:
+            await routes_mod._memory.connect()
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/chat/stream?message=Hi", follow_redirects=True)
+            assert resp.status_code == 200
+            body = resp.text
+            assert "data:" in body
+            assert "[DONE]" in body
+        if routes_mod._memory:
+            await routes_mod._memory.close()
+
+
+# ---------------------------------------------------------------------------
+# Token Budget
+# ---------------------------------------------------------------------------
+
+class TestTokenBudgetE2E:
+
+    @pytest.mark.asyncio
+    async def test_chat_returns_tokens_used(self, tmp_path: Path) -> None:
+        config = make_config(tmp_path)
+        app = create_app(config)
+        from engine.api import routes as routes_mod
+        routes_mod._agent_loop.provider = MockProvider([
+            {"content": "Response", "tool_calls": None, "usage": {"total_tokens": 42}},
+        ])
+        if routes_mod._memory:
+            await routes_mod._memory.connect()
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/api/chat", json={"message": "test"})
+            assert resp.status_code == 200
+            data = resp.json()
+            assert "tokens_used" in data.get("metadata", {})
+        if routes_mod._memory:
+            await routes_mod._memory.close()

@@ -124,4 +124,38 @@ export class EngineBridge {
     });
     return res.json() as Promise<{status: string; filename: string; chunks_created: number}>;
   }
+
+  async transcribeAudio(file: File): Promise<{text: string}> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${this.baseUrl}/api/voice/stt`, {
+      method: "POST",
+      body: formData,
+    });
+    return res.json() as Promise<{text: string}>;
+  }
+
+  async synthesizeSpeech(text: string, voice?: string, model?: string): Promise<{status: string; path: string}> {
+    const res = await fetch(`${this.baseUrl}/api/voice/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, voice: voice || "alloy", model: model || "tts-1" }),
+    });
+    return res.json() as Promise<{status: string; path: string}>;
+  }
+
+  async *synthesizeSpeechStream(text: string, voice?: string, model?: string): AsyncGenerator<Uint8Array> {
+    const res = await fetch(`${this.baseUrl}/api/voice/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, voice: voice || "alloy", model: model || "tts-1", stream: true }),
+    });
+    if (!res.body) throw new Error("No response body for TTS stream");
+    const reader = res.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      yield value;
+    }
+  }
 }

@@ -75,6 +75,32 @@ class AgentLoop:
         budget = self.config.llm.context_window - self.config.llm.max_output_tokens
         return max(0, budget - self._total_tokens_used)
 
+    async def _summarize_messages(self, messages: list[dict]) -> str:
+        if not self.provider or len(messages) < 2:
+            return ""
+        summary_prompt = (
+            "Summarize the following conversation concisely, preserving key facts, "
+            "decisions, and context. Output only the summary, no preamble.\n\n"
+        )
+        conv_text = "\n".join(
+            f"{m.get('role', '?')}: {m.get('content', '')}"
+            for m in messages
+            if m.get("role") != "system"
+        )
+        if not conv_text.strip():
+            return ""
+        try:
+            response = await self.provider.complete(
+                messages=[
+                    {"role": "system", "content": summary_prompt},
+                    {"role": "user", "content": conv_text[:8000]},
+                ],
+                tools=None,
+            )
+            return response.get("content", "")[:2000]
+        except Exception:
+            return ""
+
     def _trim_to_budget(self, messages: list[dict], budget: int) -> list[dict]:
         if self._estimate_tokens(messages) <= budget:
             return messages
@@ -89,7 +115,20 @@ class AgentLoop:
             system_msgs.insert(0, {"role": "system", "content": f"[{trimmed_count} earlier messages trimmed for token budget]"})
         return system_msgs + other_msgs
 
+    async def _summarize_older_context(self, session: Session) -> None:
+        if len(session.messages) <= MAX_SESSION_MESSAGES + 10:
+            return
+        older = session.messages[:len(session.messages) - MAX_SESSION_MESSAGES]
+        older_dicts = [m.to_api_dict() for m in older]
+        summary = await self._summarize_messages(older_dicts)
+        if summary:
+            summary_msg = Message(role="system", content=f"[Earlier conversation summary]\n{summary}")
+            recent = session.messages[len(session.messages) - MAX_SESSION_MESSAGES:]
+            session.messages = [summary_msg, *recent]
+
     async def _build_context(self, session: Session) -> list[dict]:
+        await self._summarize_older_context(session)
+
         if len(session.messages) > MAX_SESSION_MESSAGES:
             trimmed = session.messages[-MAX_SESSION_MESSAGES:]
             summary_prefix = f"[Earlier {len(session.messages) - MAX_SESSION_MESSAGES} messages trimmed]"
