@@ -63,10 +63,19 @@ class OpenAICompatibleProvider(LLMProvider):
                 for tc in msg.tool_calls
             ]
 
+        usage = {}
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens or 0,
+                "completion_tokens": response.usage.completion_tokens or 0,
+                "total_tokens": response.usage.total_tokens or 0,
+            }
+
         return {
             "content": msg.content or "",
             "tool_calls": tool_calls,
             "finish_reason": choice.finish_reason,
+            "usage": usage,
         }
 
     async def stream(self, messages: list[dict], tools: list[dict] | None = None, **kwargs):
@@ -139,7 +148,7 @@ class AnthropicProvider(LLMProvider):
 
         create_kwargs: dict = {
             "model": self.config.model,
-            "max_tokens": 4096,
+            "max_tokens": self.config.max_output_tokens,
             "messages": chat_messages,
             **kwargs,
         }
@@ -174,7 +183,15 @@ class AnthropicProvider(LLMProvider):
                     },
                 })
 
-        return {"content": text_content, "tool_calls": tool_calls}
+        usage = {}
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.input_tokens or 0,
+                "completion_tokens": response.usage.output_tokens or 0,
+                "total_tokens": (response.usage.input_tokens or 0) + (response.usage.output_tokens or 0),
+            }
+
+        return {"content": text_content, "tool_calls": tool_calls, "usage": usage}
 
     async def stream(self, messages: list[dict], tools: list[dict] | None = None, **kwargs):
         import anthropic as anthropic_mod
@@ -191,7 +208,7 @@ class AnthropicProvider(LLMProvider):
 
         create_kwargs: dict = {
             "model": self.config.model,
-            "max_tokens": 4096,
+            "max_tokens": self.config.max_output_tokens,
             "messages": chat_messages,
             **kwargs,
         }

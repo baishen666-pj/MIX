@@ -66,3 +66,14 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     engine: str
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "alloy"
+    model: str = "tts-1"
+    stream: bool = False
+
+
+class STTResponse(BaseModel):
+    text: str

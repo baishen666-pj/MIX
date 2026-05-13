@@ -13,6 +13,7 @@ from engine.tools.registry import ToolRegistry
 
 MAX_TOOL_ITERATIONS = 10
 MAX_SESSION_MESSAGES = 50
+CHARS_PER_TOKEN = 4  # rough estimate for token counting without tiktoken
 
 
 @dataclass
@@ -59,6 +60,34 @@ class AgentLoop:
         self._sessions: dict[str, Session] = {}
         self.memory = memory
         self.tools = tools or ToolRegistry()
+        self._total_tokens_used = 0
+
+    @staticmethod
+    def _estimate_tokens(messages: list[dict]) -> int:
+        total_chars = sum(
+            len(m.get("content", "")) + len(json.dumps(m.get("tool_calls", [])))
+            for m in messages
+            if isinstance(m.get("content"), str)
+        )
+        return max(1, total_chars // CHARS_PER_TOKEN)
+
+    def _token_budget_remaining(self) -> int:
+        budget = self.config.llm.context_window - self.config.llm.max_output_tokens
+        return max(0, budget - self._total_tokens_used)
+
+    def _trim_to_budget(self, messages: list[dict], budget: int) -> list[dict]:
+        if self._estimate_tokens(messages) <= budget:
+            return messages
+        system_msgs = [m for m in messages if m.get("role") == "system"]
+        other_msgs = [m for m in messages if m.get("role") != "system"]
+        while other_msgs and self._estimate_tokens(system_msgs + other_msgs) > budget:
+            other_msgs = other_msgs[1:]
+        if not other_msgs:
+            return messages[-3:]
+        trimmed_count = len(messages) - len(system_msgs) - len(other_msgs)
+        if trimmed_count > 0:
+            system_msgs.insert(0, {"role": "system", "content": f"[{trimmed_count} earlier messages trimmed for token budget]"})
+        return system_msgs + other_msgs
 
     async def _build_context(self, session: Session) -> list[dict]:
         if len(session.messages) > MAX_SESSION_MESSAGES:
@@ -84,6 +113,10 @@ class AgentLoop:
                     context_lines = [f"- {e.content}" for e in relevant]
                     system_context = "Relevant memories:\n" + "\n".join(context_lines)
                     messages.insert(0, {"role": "system", "content": system_context})
+
+        budget = self._token_budget_remaining()
+        if budget > 0:
+            messages = self._trim_to_budget(messages, budget)
 
         return messages
 
@@ -146,6 +179,8 @@ class AgentLoop:
 
             content = response.get("content") or ""
             tool_calls = response.get("tool_calls")
+            usage = response.get("usage", {})
+            self._total_tokens_used += usage.get("total_tokens", 0)
 
             session.add("assistant", content, tool_calls=tool_calls)
             context_messages.append({"role": "assistant", "content": content, "tool_calls": tool_calls})
@@ -158,7 +193,7 @@ class AgentLoop:
                     "content": content,
                     "tool_calls": None,
                     "tool_events": all_tool_events or None,
-                    "metadata": {},
+                    "metadata": {"tokens_used": self._total_tokens_used},
                 }
 
             for call in tool_calls:

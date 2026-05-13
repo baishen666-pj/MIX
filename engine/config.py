@@ -15,6 +15,8 @@ class ProviderConfig:
     model: str = "openai/gpt-4o"
     api_key: str = ""
     base_url: str = ""
+    context_window: int = 128000
+    max_output_tokens: int = 4096
 
 
 @dataclass
@@ -124,6 +126,8 @@ class MixConfig:
                 "model": self.llm.model,
                 "api_key": "***" if self.llm.api_key else "",
                 "base_url": self.llm.base_url,
+                "context_window": self.llm.context_window,
+                "max_output_tokens": self.llm.max_output_tokens,
             },
             "memory": {
                 "db_path": str(self.memory.db_path),

@@ -15,10 +15,12 @@ from engine.api.schemas import (
     CronScheduleRequest,
     DecomposeRequest,
     OrchestrateRequest,
+    TTSRequest,
+    STTResponse,
 )
 from engine.agent.loop import AgentLoop
 from engine.memory.store import MemoryStore
-from engine.memory.types import MemoryType
+from engine.memory.types import MemoryEntry, MemoryType
 from engine.memory.document_parser import extract_text
 from engine.skills.registry import SkillRegistry
 from engine.skills.loader import SkillLoader
@@ -417,14 +419,20 @@ async def mcp_register(body: dict):
 # --- Voice ---
 
 @router.post("/voice/tts")
-async def voice_tts(body: dict):
-    text = body.get("text", "")
-    if not text:
+async def voice_tts(req: TTSRequest):
+    if not req.text:
         return {"error": "text is required"}
     try:
+        if req.stream:
+            from engine.voice.tts import synthesize_stream
+            return StreamingResponse(
+                synthesize_stream(req.text, voice=req.voice, model=req.model, api_key=_api_key),
+                media_type="audio/mpeg",
+                headers={"Content-Disposition": "inline; filename=tts.mp3"},
+            )
         from engine.voice.tts import synthesize
         audio_path = await synthesize(
-            text, voice=body.get("voice", "alloy"), api_key=_api_key
+            req.text, voice=req.voice, model=req.model, api_key=_api_key
         )
         return {"status": "ok", "path": audio_path}
     except Exception as e:
@@ -432,13 +440,24 @@ async def voice_tts(body: dict):
 
 
 @router.post("/voice/stt")
-async def voice_stt(body: dict):
+async def voice_stt(file: UploadFile = File(...)):
+    try:
+        from engine.voice.stt import transcribe
+        audio_bytes = await file.read()
+        text = await transcribe(audio_bytes=audio_bytes, api_key=_api_key)
+        return STTResponse(text=text)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.post("/voice/stt/path")
+async def voice_stt_path(body: dict):
     audio_path = body.get("path", "")
     if not audio_path:
         return {"error": "path is required"}
     try:
         from engine.voice.stt import transcribe
-        text = await transcribe(audio_path, api_key=_api_key)
-        return {"status": "ok", "text": text}
+        text = await transcribe(audio_path=audio_path, api_key=_api_key)
+        return STTResponse(text=text)
     except Exception as e:
         return {"error": str(e)}

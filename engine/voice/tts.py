@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import tempfile
 from pathlib import Path
+from typing import AsyncIterator
 
 
 async def synthesize(
@@ -31,3 +32,25 @@ async def synthesize(
     )
     response.stream_to_file(str(out_path))
     return str(out_path)
+
+
+async def synthesize_stream(
+    text: str,
+    voice: str = "alloy",
+    model: str = "tts-1",
+    api_key: str | None = None,
+    chunk_size: int = 4096,
+) -> AsyncIterator[bytes]:
+    import os
+    from openai import AsyncOpenAI
+
+    client = AsyncOpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
+
+    response = await client.audio.speech.create(
+        model=model,
+        voice=voice,
+        input=text,
+    )
+
+    async for chunk in response.iter_bytes(chunk_size=chunk_size):
+        yield chunk
