@@ -1,0 +1,35 @@
+appId: com.mix.desktop
+productName: MIX Agent
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**/*
+  - "!src/**/*"
+  - "!electron.vite.config.{js,ts,mjs,cjs}"
+  - "!{tsconfig.json,eslint.config.*,README.md}"
+asarUnpack:
+  - "**/*.node"
+win:
+  executableName: mix-agent
+  target:
+    - nsis
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+  oneClick: true
+  perMachine: false
+mac:
+  icon: build/icon.icns
+  category: public.app-category.productivity
+  target:
+    - dmg
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+  synopsis: Unified AI agent platform
+npmRebuild: false

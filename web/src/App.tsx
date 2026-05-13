@@ -23,7 +23,8 @@ import { s } from "./styles";
 
 const VALID_TABS: Tab[] = ["chat", "skills", "memory", "dashboard", "agents", "tools", "knowledge", "settings"];
 
-const WS_URL = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/chat`;
+const WS_URL = import.meta.env.VITE_WS_URL
+  || `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/chat`;
 
 function isValidTab(value: string): value is Tab {
   return VALID_TABS.includes(value as Tab);

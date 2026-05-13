@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./out",
+    "resolveJsonModule": true,
+    "declaration": false
+  },
+  "include": ["main/**/*.ts", "preload/**/*.ts"],
+  "exclude": ["node_modules", "out"]
+}
