@@ -1,4 +1,4 @@
-.PHONY: install dev engine gateway test test-engine test-gateway test-web clean setup docker-up docker-down docker-build docker-logs desktop
+.PHONY: install dev engine gateway test test-engine test-gateway test-web clean setup docker-up docker-down docker-build docker-logs desktop perf perf-clean
 
 PYTHON ?= python3
 NODE ?= node
@@ -65,3 +65,9 @@ docker-restart:
 
 desktop:
 	bash scripts/build-desktop.sh
+
+perf:
+	cd perf && $(MAKE) perf-all
+
+perf-clean:
+	cd perf && $(MAKE) perf-clean

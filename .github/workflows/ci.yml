@@ -104,3 +104,26 @@ jobs:
         run: docker build -f Dockerfile.gateway -t mix-gateway .
       - name: Build web image
         run: docker build -f Dockerfile.web -t mix-web .
+
+  perf-test:
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install -q fastapi uvicorn locust
+          curl -fsSL https://github.com/grafana/k6/releases/download/v0.50.0/k6-v0.50.0-linux-amd64.tar.gz | tar xz
+          sudo mv k6-*/k6 /usr/local/bin/
+      - name: Run performance tests
+        run: cd perf && bash run.sh --target engine --duration 30 --users 20
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-results
+          path: perf/results/
