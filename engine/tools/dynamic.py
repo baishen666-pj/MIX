@@ -83,14 +83,34 @@ class DynamicToolRegistry:
         """Server-side danger level analysis based on code patterns."""
         code_lower = handler_code.lower()
         dangerous_patterns = [
-            "subprocess", "os.system", "os.exec", "eval(", "exec(",
-            "open(", "socket", "http", "request", "fetch",
-            "file", "write", "delete", "remove", "rmdir",
-            "import", "__", "compile(",
+            "subprocess",
+            "os.system",
+            "os.exec",
+            "eval(",
+            "exec(",
+            "open(",
+            "socket",
+            "http",
+            "request",
+            "fetch",
+            "file",
+            "write",
+            "delete",
+            "remove",
+            "rmdir",
+            "import",
+            "__",
+            "compile(",
         ]
         moderate_patterns = [
-            "requests", "urllib", "httpx", "aiohttp",
-            "json.loads", "json.dumps", "read", "write",
+            "requests",
+            "urllib",
+            "httpx",
+            "aiohttp",
+            "json.loads",
+            "json.dumps",
+            "read",
+            "write",
         ]
         danger_score = sum(1 for p in dangerous_patterns if p in code_lower)
         moderate_score = sum(1 for p in moderate_patterns if p in code_lower)
@@ -177,9 +197,7 @@ class DynamicToolRegistry:
         except SyntaxError as exc:
             raise ValueError(f"Invalid Python syntax in handler code: {exc}") from exc
 
-        _blocked_builtins = frozenset(
-            {"__import__", "eval", "exec", "compile", "open", "breakpoint", "input"}
-        )
+        _blocked_builtins = frozenset({"__import__", "eval", "exec", "compile", "open", "breakpoint", "input"})
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

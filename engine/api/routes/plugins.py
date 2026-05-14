@@ -108,12 +108,14 @@ async def marketplace_list(q: str = "", category: str = "", tags: str = ""):
         iv = installed_map.get(e["name"]) or installed_map.get(e["id"])
         is_installed = iv is not None
         update_available = is_installed and compare_versions(iv or "", e.get("version", "0"))
-        enriched.append({
-            **e,
-            "installed": is_installed,
-            "installed_version": iv,
-            "update_available": update_available,
-        })
+        enriched.append(
+            {
+                **e,
+                "installed": is_installed,
+                "installed_version": iv,
+                "update_available": update_available,
+            }
+        )
     return {"entries": enriched, "categories": _pkg._marketplace.categories()}
 
 

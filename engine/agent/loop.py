@@ -208,13 +208,15 @@ class AgentLoop:
         messages = []
         for m in data.get("messages", []):
             if isinstance(m, dict) and "role" in m:
-                messages.append(Message(
-                    role=m["role"],
-                    content=m.get("content"),
-                    tool_call_id=m.get("tool_call_id"),
-                    tool_calls=m.get("tool_calls"),
-                    name=m.get("name"),
-                ))
+                messages.append(
+                    Message(
+                        role=m["role"],
+                        content=m.get("content"),
+                        tool_call_id=m.get("tool_call_id"),
+                        tool_calls=m.get("tool_calls"),
+                        name=m.get("name"),
+                    )
+                )
         return Session(
             id=session_id,
             messages=messages,

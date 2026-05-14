@@ -80,6 +80,7 @@ jobs:
         with:
           node-version: "24"
       - run: npm ci
+      - run: npx tsc --build shared
       - run: npx tsc --noEmit --project gateway/tsconfig.json
 
   lint-web:

@@ -88,8 +88,7 @@ class TaskOrchestrator:
         """
         plan_id = str(uuid.uuid4())
         results: dict[str, SubtaskResult] = {
-            s.id: SubtaskResult(subtask_id=s.id, status=TaskStatus.PENDING)
-            for s in subtasks
+            s.id: SubtaskResult(subtask_id=s.id, status=TaskStatus.PENDING) for s in subtasks
         }
         plan = OrchestratorPlanStatus(
             plan_id=plan_id,
