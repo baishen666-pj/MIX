@@ -63,6 +63,7 @@ def _build_client(
 
 # -- helpers ---------------------------------------------------------------
 
+
 def _make_marketplace(tmp_path: Path, entries: list[dict]) -> MarketplaceIndex:
     p = tmp_path / "idx.json"
     p.write_text(json.dumps({"version": 1, "entries": entries}), encoding="utf-8")
@@ -76,10 +77,22 @@ def _make_marketplace(tmp_path: Path, entries: list[dict]) -> MarketplaceIndex:
 
 class TestMarketplaceList:
     def test_returns_entries(self, tmp_path: Path) -> None:
-        mp = _make_marketplace(tmp_path, [
-            {"id": "a", "name": "A", "description": "desc", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-        ])
+        mp = _make_marketplace(
+            tmp_path,
+            [
+                {
+                    "id": "a",
+                    "name": "A",
+                    "description": "desc",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        )
         client = _build_client(marketplace=mp)
         resp = client.get("/api/plugins/marketplace")
         assert resp.status_code == 200
@@ -94,21 +107,54 @@ class TestMarketplaceList:
         assert resp.json()["entries"] == []
 
     def test_filters_by_category(self, tmp_path: Path) -> None:
-        mp = _make_marketplace(tmp_path, [
-            {"id": "a", "name": "A", "description": "", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-            {"id": "b", "name": "B", "description": "", "version": "1",
-             "category": "data", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-        ])
+        mp = _make_marketplace(
+            tmp_path,
+            [
+                {
+                    "id": "a",
+                    "name": "A",
+                    "description": "",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+                {
+                    "id": "b",
+                    "name": "B",
+                    "description": "",
+                    "version": "1",
+                    "category": "data",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        )
         client = _build_client(marketplace=mp)
         resp = client.get("/api/plugins/marketplace?category=utilities")
         assert len(resp.json()["entries"]) == 1
 
     def test_filters_by_query(self, tmp_path: Path) -> None:
-        mp = _make_marketplace(tmp_path, [
-            {"id": "a", "name": "Weather", "description": "weather tool", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-        ])
+        mp = _make_marketplace(
+            tmp_path,
+            [
+                {
+                    "id": "a",
+                    "name": "Weather",
+                    "description": "weather tool",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        )
         client = _build_client(marketplace=mp)
         resp = client.get("/api/plugins/marketplace?q=weather")
         assert len(resp.json()["entries"]) == 1
@@ -118,10 +164,22 @@ class TestMarketplaceList:
 
 class TestMarketplaceDetail:
     def test_returns_entry(self, tmp_path: Path) -> None:
-        mp = _make_marketplace(tmp_path, [
-            {"id": "calc", "name": "Calc", "description": "math", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": ["/calc"]},
-        ])
+        mp = _make_marketplace(
+            tmp_path,
+            [
+                {
+                    "id": "calc",
+                    "name": "Calc",
+                    "description": "math",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": ["/calc"],
+                },
+            ],
+        )
         client = _build_client(marketplace=mp)
         resp = client.get("/api/plugins/marketplace/calc")
         assert resp.status_code == 200
@@ -147,16 +205,28 @@ class TestMarketplaceInstall:
         assert resp.status_code == 404
 
     def test_503_without_registry(self, tmp_path: Path) -> None:
-        mp = _make_marketplace(tmp_path, [
-            {"id": "x", "name": "X", "description": "", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "https://example.com/x",
-             "handler": "python", "triggers": []},
-        ])
+        mp = _make_marketplace(
+            tmp_path,
+            [
+                {
+                    "id": "x",
+                    "name": "X",
+                    "description": "",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "https://example.com/x",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        )
         reg = MagicMock()
         reg.skills = {}
         client = _build_client(marketplace=mp, skill_registry=reg)
         # Simulate registry being None at request time
         from engine.api import routes as routes_mod
+
         routes_mod._skill_registry = None
         resp = client.post("/api/plugins/marketplace/install", json={"id": "x"})
         assert resp.status_code == 503
@@ -171,10 +241,22 @@ class TestMarketplaceInstall:
 
 class TestMarketplaceRefresh:
     def test_refresh_returns_count(self, tmp_path: Path) -> None:
-        mp = _make_marketplace(tmp_path, [
-            {"id": "a", "name": "A", "description": "", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-        ])
+        mp = _make_marketplace(
+            tmp_path,
+            [
+                {
+                    "id": "a",
+                    "name": "A",
+                    "description": "",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        )
         client = _build_client(marketplace=mp)
         resp = client.post("/api/plugins/marketplace/refresh")
         assert resp.status_code == 200

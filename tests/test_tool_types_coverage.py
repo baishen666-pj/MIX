@@ -69,9 +69,20 @@ class TestToolDefinitions:
 
     def test_known_tools_present(self):
         names = {d["function"]["name"] for d in TOOL_DEFINITIONS}
-        expected = {"bash", "file_read", "file_write", "file_list", "web_search",
-                    "file_edit", "grep", "glob", "web_fetch", "calculator",
-                    "code_execute", "image_generate"}
+        expected = {
+            "bash",
+            "file_read",
+            "file_write",
+            "file_list",
+            "web_search",
+            "file_edit",
+            "grep",
+            "glob",
+            "web_fetch",
+            "calculator",
+            "code_execute",
+            "image_generate",
+        }
         assert expected.issubset(names)
 
 
@@ -85,7 +96,9 @@ class TestToolProtocol:
         class MockTool:
             name = "mock"
             description = "A mock tool"
+
             async def execute(self, **kwargs: Any) -> ToolResult:
                 return ToolResult(output="mocked")
+
         tool = MockTool()
         assert tool.name == "mock"

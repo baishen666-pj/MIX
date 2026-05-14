@@ -77,9 +77,7 @@ async def test_execute_dynamic_tool():
     registry = ToolRegistry()
     mock_dynamic = MagicMock()
     mock_dynamic.has_tool = MagicMock(return_value=True)
-    mock_dynamic.execute = AsyncMock(
-        return_value={"output": "dynamic result", "error": None, "success": True}
-    )
+    mock_dynamic.execute = AsyncMock(return_value={"output": "dynamic result", "error": None, "success": True})
     registry.set_dynamic_registry(mock_dynamic)
 
     result = await registry.execute("dynamic_tool", x=1)
@@ -193,9 +191,7 @@ async def test_execute_sandboxed_success():
     registry = ToolRegistry()
 
     mock_sandbox = MagicMock()
-    mock_sandbox.execute = AsyncMock(
-        return_value={"exit_code": 0, "stdout": "sandboxed output", "stderr": ""}
-    )
+    mock_sandbox.execute = AsyncMock(return_value={"exit_code": 0, "stdout": "sandboxed output", "stderr": ""})
     registry._sandbox = mock_sandbox
 
     result = await registry.execute("bash", command="echo hello")
@@ -209,9 +205,7 @@ async def test_execute_sandboxed_nonzero_exit():
     registry = ToolRegistry()
 
     mock_sandbox = MagicMock()
-    mock_sandbox.execute = AsyncMock(
-        return_value={"exit_code": 1, "stdout": "", "stderr": "command not found"}
-    )
+    mock_sandbox.execute = AsyncMock(return_value={"exit_code": 1, "stdout": "", "stderr": "command not found"})
     registry._sandbox = mock_sandbox
 
     result = await registry.execute("bash", command="bad_command")

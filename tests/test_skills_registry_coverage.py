@@ -132,9 +132,7 @@ class TestInstallFromGitHub:
         registry = SkillRegistry(skills_dir=tmp_path)
         target = tmp_path / "repo"
         target.mkdir()
-        (target / "SKILL.md").write_text(
-            _make_skill_md(name="gh-skill"), encoding="utf-8"
-        )
+        (target / "SKILL.md").write_text(_make_skill_md(name="gh-skill"), encoding="utf-8")
 
         with patch.object(registry, "_clone_github", return_value=True):
             # Patch _parse_skill_md to read from the cloned dir
@@ -151,9 +149,7 @@ class TestInstallFromGitHub:
     def test_install_local_success(self, tmp_path: Path) -> None:
         local_skill = tmp_path / "local_source"
         local_skill.mkdir()
-        (local_skill / "SKILL.md").write_text(
-            _make_skill_md(name="local-skill"), encoding="utf-8"
-        )
+        (local_skill / "SKILL.md").write_text(_make_skill_md(name="local-skill"), encoding="utf-8")
 
         skills_dir = tmp_path / "installed"
         skills_dir.mkdir()
@@ -274,9 +270,7 @@ class TestUpdateSkill:
     def test_update_github_success(self, tmp_path: Path) -> None:
         skill_dir = tmp_path / "update-me"
         skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            _make_skill_md(name="update-skill", version="2.0.0"), encoding="utf-8"
-        )
+        (skill_dir / "SKILL.md").write_text(_make_skill_md(name="update-skill", version="2.0.0"), encoding="utf-8")
 
         registry = SkillRegistry(skills_dir=tmp_path)
         skill = SkillManifest(
@@ -294,9 +288,7 @@ class TestUpdateSkill:
         def _fake_clone(url: str, target: Path) -> bool:
             # Simulate clone by ensuring SKILL.md exists at target
             target.mkdir(parents=True, exist_ok=True)
-            (target / "SKILL.md").write_text(
-                _make_skill_md(name="update-skill", version="2.0.0"), encoding="utf-8"
-            )
+            (target / "SKILL.md").write_text(_make_skill_md(name="update-skill", version="2.0.0"), encoding="utf-8")
             return True
 
         with patch.object(registry, "_clone_github", side_effect=_fake_clone):
@@ -308,9 +300,7 @@ class TestUpdateSkill:
     def test_update_local_source_success(self, tmp_path: Path) -> None:
         local_source = tmp_path / "local_src"
         local_source.mkdir()
-        (local_source / "SKILL.md").write_text(
-            _make_skill_md(name="local-update", version="3.0.0"), encoding="utf-8"
-        )
+        (local_source / "SKILL.md").write_text(_make_skill_md(name="local-update", version="3.0.0"), encoding="utf-8")
 
         target = tmp_path / "installed"
         target.mkdir()
@@ -338,14 +328,26 @@ class TestListAvailable:
 
     def test_list_available_with_query(self, tmp_path: Path) -> None:
         registry = SkillRegistry(skills_dir=tmp_path)
-        registry.register(SkillManifest(
-            name="search-skill", version="1.0.0", description="a searchable skill",
-            trigger=["/search"], handler="python", source_url="https://example.com",
-        ))
-        registry.register(SkillManifest(
-            name="other-skill", version="1.0.0", description="unrelated",
-            trigger=["/other"], handler="python", source_url="",
-        ))
+        registry.register(
+            SkillManifest(
+                name="search-skill",
+                version="1.0.0",
+                description="a searchable skill",
+                trigger=["/search"],
+                handler="python",
+                source_url="https://example.com",
+            )
+        )
+        registry.register(
+            SkillManifest(
+                name="other-skill",
+                version="1.0.0",
+                description="unrelated",
+                trigger=["/other"],
+                handler="python",
+                source_url="",
+            )
+        )
 
         results = registry.list_available(query="search")
         assert len(results) == 1
@@ -353,14 +355,24 @@ class TestListAvailable:
 
     def test_list_available_no_query(self, tmp_path: Path) -> None:
         registry = SkillRegistry(skills_dir=tmp_path)
-        registry.register(SkillManifest(
-            name="a", version="1.0.0", description="x",
-            trigger=["/a"], handler="python",
-        ))
-        registry.register(SkillManifest(
-            name="b", version="1.0.0", description="y",
-            trigger=["/b"], handler="python",
-        ))
+        registry.register(
+            SkillManifest(
+                name="a",
+                version="1.0.0",
+                description="x",
+                trigger=["/a"],
+                handler="python",
+            )
+        )
+        registry.register(
+            SkillManifest(
+                name="b",
+                version="1.0.0",
+                description="y",
+                trigger=["/b"],
+                handler="python",
+            )
+        )
 
         results = registry.list_available()
         assert len(results) == 2

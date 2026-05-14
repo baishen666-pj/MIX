@@ -21,10 +21,15 @@ def tmp_index(tmp_path: Path) -> Path:
 def _e(id: str, name: str, category: str, **kw: object) -> dict:
     """Build a minimal marketplace entry dict for tests."""
     return {
-        "id": id, "name": name, "description": kw.get("description", ""),
-        "version": kw.get("version", "1"), "category": category,
-        "tags": kw.get("tags", []), "source_url": kw.get("source_url", ""),
-        "handler": kw.get("handler", "python"), "triggers": kw.get("triggers", []),
+        "id": id,
+        "name": name,
+        "description": kw.get("description", ""),
+        "version": kw.get("version", "1"),
+        "category": category,
+        "tags": kw.get("tags", []),
+        "source_url": kw.get("source_url", ""),
+        "handler": kw.get("handler", "python"),
+        "triggers": kw.get("triggers", []),
     }
 
 
@@ -38,20 +43,23 @@ def _write_index(path: Path, entries: list[dict]) -> None:
 
 class TestLoad:
     def test_load_valid_index(self, tmp_index: Path) -> None:
-        _write_index(tmp_index, [
-            {
-                "id": "test-skill",
-                "name": "Test Skill",
-                "description": "A test",
-                "version": "1.0.0",
-                "author": "Tester",
-                "category": "utilities",
-                "tags": ["test"],
-                "source_url": "https://example.com/test",
-                "handler": "python",
-                "triggers": ["/test"],
-            },
-        ])
+        _write_index(
+            tmp_index,
+            [
+                {
+                    "id": "test-skill",
+                    "name": "Test Skill",
+                    "description": "A test",
+                    "version": "1.0.0",
+                    "author": "Tester",
+                    "category": "utilities",
+                    "tags": ["test"],
+                    "source_url": "https://example.com/test",
+                    "handler": "python",
+                    "triggers": ["/test"],
+                },
+            ],
+        )
         idx = MarketplaceIndex(tmp_index)
         assert idx.load() == 1
 
@@ -66,9 +74,12 @@ class TestLoad:
         assert idx.load() == 0
 
     def test_load_missing_required_field_skips_entry(self, tmp_index: Path) -> None:
-        _write_index(tmp_index, [
-            {"id": "bad", "description": "missing name"},
-        ])
+        _write_index(
+            tmp_index,
+            [
+                {"id": "bad", "description": "missing name"},
+            ],
+        )
         idx = MarketplaceIndex(tmp_index)
         assert idx.load() == 0
 
@@ -85,32 +96,35 @@ class TestLoad:
 class TestListEntries:
     @pytest.fixture()
     def loaded(self, tmp_index: Path) -> MarketplaceIndex:
-        _write_index(tmp_index, [
-            {
-                "id": "weather",
-                "name": "Weather Fetcher",
-                "description": "Get weather",
-                "version": "1.0",
-                "author": "A",
-                "category": "utilities",
-                "tags": ["weather", "api"],
-                "source_url": "",
-                "handler": "python",
-                "triggers": ["/weather"],
-            },
-            {
-                "id": "calc",
-                "name": "Calculator",
-                "description": "Do math",
-                "version": "1.0",
-                "author": "B",
-                "category": "developer",
-                "tags": ["math"],
-                "source_url": "",
-                "handler": "python",
-                "triggers": ["/calc"],
-            },
-        ])
+        _write_index(
+            tmp_index,
+            [
+                {
+                    "id": "weather",
+                    "name": "Weather Fetcher",
+                    "description": "Get weather",
+                    "version": "1.0",
+                    "author": "A",
+                    "category": "utilities",
+                    "tags": ["weather", "api"],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": ["/weather"],
+                },
+                {
+                    "id": "calc",
+                    "name": "Calculator",
+                    "description": "Do math",
+                    "version": "1.0",
+                    "author": "B",
+                    "category": "developer",
+                    "tags": ["math"],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": ["/calc"],
+                },
+            ],
+        )
         idx = MarketplaceIndex(tmp_index)
         idx.load()
         return idx
@@ -146,20 +160,23 @@ class TestListEntries:
 
 class TestGetEntry:
     def test_get_existing(self, tmp_index: Path) -> None:
-        _write_index(tmp_index, [
-            {
-                "id": "my-skill",
-                "name": "My Skill",
-                "description": "x",
-                "version": "1.0",
-                "author": "",
-                "category": "utilities",
-                "tags": [],
-                "source_url": "",
-                "handler": "python",
-                "triggers": [],
-            },
-        ])
+        _write_index(
+            tmp_index,
+            [
+                {
+                    "id": "my-skill",
+                    "name": "My Skill",
+                    "description": "x",
+                    "version": "1.0",
+                    "author": "",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        )
         idx = MarketplaceIndex(tmp_index)
         idx.load()
         entry = idx.get_entry("my-skill")
@@ -176,11 +193,14 @@ class TestGetEntry:
 
 class TestCategories:
     def test_returns_sorted_unique(self, tmp_index: Path) -> None:
-        _write_index(tmp_index, [
-            _e("a", "A", "data"),
-            _e("b", "B", "ai"),
-            _e("c", "C", "data"),
-        ])
+        _write_index(
+            tmp_index,
+            [
+                _e("a", "A", "data"),
+                _e("b", "B", "ai"),
+                _e("c", "C", "data"),
+            ],
+        )
         idx = MarketplaceIndex(tmp_index)
         idx.load()
         assert idx.categories() == ["ai", "data"]
@@ -192,22 +212,31 @@ class TestCategories:
 class TestRefresh:
     @pytest.mark.asyncio
     async def test_refresh_reloads(self, tmp_index: Path) -> None:
-        _write_index(tmp_index, [
-            _e("a", "A", "utilities"),
-        ])
+        _write_index(
+            tmp_index,
+            [
+                _e("a", "A", "utilities"),
+            ],
+        )
         idx = MarketplaceIndex(tmp_index)
         assert idx.load() == 1
-        _write_index(tmp_index, [
-            _e("a", "A", "utilities"),
-            _e("b", "B", "data"),
-        ])
+        _write_index(
+            tmp_index,
+            [
+                _e("a", "A", "utilities"),
+                _e("b", "B", "data"),
+            ],
+        )
         assert await idx.refresh() == 2
 
     @pytest.mark.asyncio
     async def test_refresh_without_remote_falls_back_to_local(self, tmp_index: Path) -> None:
-        _write_index(tmp_index, [
-            _e("a", "A", "utilities"),
-        ])
+        _write_index(
+            tmp_index,
+            [
+                _e("a", "A", "utilities"),
+            ],
+        )
         idx = MarketplaceIndex(tmp_index)
         assert await idx.refresh() == 1
 
@@ -235,10 +264,22 @@ class TestSeedIndex:
 class TestFetchRemote:
     @pytest.mark.asyncio
     async def test_fetch_remote_without_url_falls_back(self, tmp_index: Path) -> None:
-        _write_index(tmp_index, [
-            {"id": "a", "name": "A", "description": "", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-        ])
+        _write_index(
+            tmp_index,
+            [
+                {
+                    "id": "a",
+                    "name": "A",
+                    "description": "",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        )
         idx = MarketplaceIndex(tmp_index)
         count = await idx.fetch_remote()
         assert count == 1
@@ -248,9 +289,17 @@ class TestFetchRemote:
         remote_data = {
             "version": 1,
             "entries": [
-                {"id": "remote-1", "name": "Remote", "description": "from remote",
-                 "version": "2.0", "category": "ai", "tags": ["remote"],
-                 "source_url": "", "handler": "python", "triggers": []},
+                {
+                    "id": "remote-1",
+                    "name": "Remote",
+                    "description": "from remote",
+                    "version": "2.0",
+                    "category": "ai",
+                    "tags": ["remote"],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
             ],
         }
         mock_resp = MagicMock()
@@ -277,9 +326,17 @@ class TestFetchRemote:
         remote_data = {
             "version": 1,
             "entries": [
-                {"id": "cached", "name": "Cached", "description": "cached entry",
-                 "version": "1.0", "category": "utilities", "tags": [],
-                 "source_url": "", "handler": "python", "triggers": []},
+                {
+                    "id": "cached",
+                    "name": "Cached",
+                    "description": "cached entry",
+                    "version": "1.0",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
             ],
         }
         mock_resp = MagicMock()
@@ -303,10 +360,22 @@ class TestFetchRemote:
 
     @pytest.mark.asyncio
     async def test_fetch_remote_failure_falls_back(self, tmp_index: Path) -> None:
-        _write_index(tmp_index, [
-            {"id": "local", "name": "Local", "description": "", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-        ])
+        _write_index(
+            tmp_index,
+            [
+                {
+                    "id": "local",
+                    "name": "Local",
+                    "description": "",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        )
 
         mock_client = AsyncMock()
         mock_client.get.side_effect = Exception("network error")
@@ -324,8 +393,17 @@ class TestFetchRemote:
         remote_data = {
             "version": 1,
             "entries": [
-                {"id": "x", "name": "X", "description": "", "version": "1",
-                 "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+                {
+                    "id": "x",
+                    "name": "X",
+                    "description": "",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
             ],
         }
         mock_resp = MagicMock()
@@ -384,10 +462,22 @@ class TestETagSupport:
         with patch("httpx.AsyncClient", return_value=mock_client):
             idx = MarketplaceIndex(tmp_index, remote_url="https://example.com/index.json")
             idx._etag = '"v1"'
-            _write_index(tmp_index, [
-                {"id": "a", "name": "A", "description": "", "version": "1",
-                 "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-            ])
+            _write_index(
+                tmp_index,
+                [
+                    {
+                        "id": "a",
+                        "name": "A",
+                        "description": "",
+                        "version": "1",
+                        "category": "utilities",
+                        "tags": [],
+                        "source_url": "",
+                        "handler": "python",
+                        "triggers": [],
+                    },
+                ],
+            )
             idx.load()
             await idx.fetch_remote()
 
@@ -404,10 +494,22 @@ class TestETagSupport:
 
     @pytest.mark.asyncio
     async def test_handles_304_without_reparse(self, tmp_index: Path) -> None:
-        _write_index(tmp_index, [
-            {"id": "existing", "name": "Existing", "description": "", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-        ])
+        _write_index(
+            tmp_index,
+            [
+                {
+                    "id": "existing",
+                    "name": "Existing",
+                    "description": "",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        )
         mock_resp = MagicMock()
         mock_resp.status_code = 304
 
@@ -426,10 +528,22 @@ class TestETagSupport:
 
     @pytest.mark.asyncio
     async def test_stores_etag_from_200(self, tmp_index: Path) -> None:
-        remote_data = {"version": 1, "entries": [
-            {"id": "x", "name": "X", "description": "", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-        ]}
+        remote_data = {
+            "version": 1,
+            "entries": [
+                {
+                    "id": "x",
+                    "name": "X",
+                    "description": "",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        }
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = remote_data
@@ -448,10 +562,22 @@ class TestETagSupport:
 
     @pytest.mark.asyncio
     async def test_no_etag_header_graceful(self, tmp_index: Path) -> None:
-        remote_data = {"version": 1, "entries": [
-            {"id": "x", "name": "X", "description": "", "version": "1",
-             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-        ]}
+        remote_data = {
+            "version": 1,
+            "entries": [
+                {
+                    "id": "x",
+                    "name": "X",
+                    "description": "",
+                    "version": "1",
+                    "category": "utilities",
+                    "tags": [],
+                    "source_url": "",
+                    "handler": "python",
+                    "triggers": [],
+                },
+            ],
+        }
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = remote_data

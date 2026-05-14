@@ -96,6 +96,7 @@ class TestErrorMessages:
 
     def test_error_includes_allowed_dirs(self, tmp_path: Path):
         import re
+
         sandbox = FileSandbox([str(tmp_path)])
         pattern = re.escape(str(tmp_path.resolve()))
         with pytest.raises(PermissionError, match=pattern):

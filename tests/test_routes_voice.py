@@ -160,8 +160,7 @@ class TestVoiceSTT:
             call_kwargs = mock_trans.call_args
             # Verify api_key was passed
             assert (
-                call_kwargs.kwargs.get("api_key") == "test-api-key"
-                or call_kwargs[1].get("api_key") == "test-api-key"
+                call_kwargs.kwargs.get("api_key") == "test-api-key" or call_kwargs[1].get("api_key") == "test-api-key"
             )
 
     def test_returns_500_when_transcribe_raises(self):
