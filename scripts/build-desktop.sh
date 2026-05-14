@@ -1,20 +1,42 @@
 #!/bin/bash
-# MIX Desktop Build — produces Windows NSIS installer
-# Usage: bash scripts/build-desktop.sh [--skip-engine]
+# MIX Desktop Build — produces platform-specific installer
+# Usage: bash scripts/build-desktop.sh [--skip-engine] [--platform win|mac|linux|all]
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SKIP_ENGINE="${1:-}"
+SKIP_ENGINE=""
+PLATFORM=""
+
+for arg in "$@"; do
+  case "$arg" in
+    --skip-engine) SKIP_ENGINE="--skip-engine" ;;
+    --platform) shift ;; # handled below
+    win|mac|linux|all) PLATFORM="$arg" ;;
+  esac
+done
+
+if [ -z "$PLATFORM" ]; then
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*|Windows_NT) PLATFORM="win" ;;
+    Darwin) PLATFORM="mac" ;;
+    *) PLATFORM="linux" ;;
+  esac
+fi
 
 echo "=== MIX Desktop Build ==="
 echo "Root: $ROOT_DIR"
+echo "Platform: $PLATFORM"
 echo ""
 
 # [1/3] Build Engine (PyInstaller)
 if [ "$SKIP_ENGINE" != "--skip-engine" ]; then
   echo "=== [1/3] Building Engine (PyInstaller) ==="
   cd "$ROOT_DIR"
-  if [ ! -f "dist/mix-engine/mix-engine.exe" ] && [ ! -f "dist/mix-engine/mix-engine" ]; then
+  ENGINE_BIN="dist/mix-engine/mix-engine"
+  case "$PLATFORM" in
+    win) ENGINE_BIN="dist/mix-engine/mix-engine.exe" ;;
+  esac
+  if [ ! -f "$ENGINE_BIN" ]; then
     bash scripts/build-engine.sh
   else
     echo "Engine already built, skipping (delete dist/mix-engine/ to rebuild)"
@@ -33,9 +55,25 @@ npm run bundle
 echo ""
 echo "=== [3/3] Packaging Electron ==="
 cd "$ROOT_DIR/electron"
-npm run build:win
+
+case "$PLATFORM" in
+  win)
+    npm run build:win
+    ;;
+  mac)
+    npm run build:mac
+    ;;
+  linux)
+    npm run build:linux
+    ;;
+  all)
+    npm run build:win
+    npm run build:mac
+    npm run build:linux
+    ;;
+esac
 
 echo ""
 echo "=== Build complete ==="
 echo "Output: $ROOT_DIR/electron/dist/"
-ls -la "$ROOT_DIR/electron/dist/"*.exe 2>/dev/null || echo "(no .exe found — check build output)"
+ls -la "$ROOT_DIR/electron/dist/" 2>/dev/null | grep -E "\.(exe|dmg|AppImage|deb)$" || echo "(check build output for artifacts)"

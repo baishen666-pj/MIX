@@ -97,7 +97,10 @@ function createMainWindow(): void {
 }
 
 function setupTray(): void {
-  const icon = nativeImage.createEmpty();
+  const iconPath = app.isPackaged
+    ? join(process.resourcesPath, "tray-icon.png")
+    : join(__dirname, "../../build/icon-16.png");
+  const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon);
   const contextMenu = Menu.buildFromTemplate([
     { label: "Show MIX", click: () => { mainWindow?.show(); mainWindow?.focus(); } },

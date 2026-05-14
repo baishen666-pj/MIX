@@ -194,8 +194,82 @@ Key config values in `~/.mix/config.json` or `.env`:
 ## Docker
 
 ```bash
+# Build and start all services
 docker-compose up -d
+
+# Check logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
 ```
+
+Access points after `docker-compose up`:
+- **Web UI**: http://localhost:8080
+- **Gateway API**: http://localhost:18789
+- **Engine API**: http://localhost:18700
+
+## Kubernetes
+
+```bash
+# Deploy to cluster
+kubectl apply -k deploy/
+
+# Check pods
+kubectl get pods -l app=mix
+
+# Port-forward for local access
+kubectl port-forward svc/mix-gateway 18789:18789
+kubectl port-forward svc/mix-engine 18700:18700
+```
+
+## Electron Desktop
+
+### Development
+
+```bash
+cd electron && npm install
+npx electron-vite dev
+```
+
+### Build installer
+
+```bash
+# Windows (NSIS)
+bash scripts/build-desktop.sh --platform win
+
+# macOS (DMG) — run on macOS
+bash scripts/build-desktop.sh --platform mac
+
+# Linux (AppImage + deb) — run on Linux
+bash scripts/build-desktop.sh --platform linux
+```
+
+Output: `electron/dist/`
+
+### Auto-update
+
+Configure `electron/electron-builder.yml` with your GitHub repo:
+```yaml
+publish:
+  provider: github
+  owner: your-org
+  repo: your-repo
+```
+
+Push a GitHub Release with the built artifacts to trigger updates.
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MIX_GATEWAY_PORT` | 18789 | Gateway listen port |
+| `MIX_ENGINE_PORT` | 18700 | Engine listen port |
+| `MIX_CONFIG` | `~/.mix/config.json` | Config file path |
+| `TELEGRAM_BOT_TOKEN` | - | Telegram bot token |
+| `DISCORD_BOT_TOKEN` | - | Discord bot token |
+| `SLACK_BOT_TOKEN` | - | Slack bot token |
+| `API_KEYS` | - | Comma-separated gateway API keys |
 
 ## Test
 

@@ -25,6 +25,8 @@ extraResources:
       - "**/*"
   - from: resources/splash.html
     to: splash.html
+  - from: build/icon-16.png
+    to: tray-icon.png
 win:
   executableName: mix-agent
   target:
@@ -39,12 +41,15 @@ nsis:
 mac:
   icon: build/icon.icns
   category: public.app-category.productivity
+  artifactName: ${name}-${version}-mac.${ext}
   target:
     - dmg
 linux:
+  icon: build/icon-512.png
   target:
     - AppImage
     - deb
   category: Utility
   synopsis: Unified AI agent platform
+  artifactName: ${name}-${version}-linux.${ext}
 npmRebuild: false
