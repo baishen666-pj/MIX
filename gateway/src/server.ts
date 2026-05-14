@@ -331,7 +331,7 @@ export async function createServer(config: GatewayConfig) {
   app.post("/api/plugins/install", async (request, reply) => {
     try {
       const body = request.body as Record<string, unknown>;
-      const res = await fetch(`${bridge["baseUrl"]}/api/plugins/install`, {
+      const res = await fetch(`${bridge.getBaseUrl()}/api/plugins/install`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -346,7 +346,7 @@ export async function createServer(config: GatewayConfig) {
   app.post("/api/plugins/uninstall", async (request, reply) => {
     try {
       const body = request.body as Record<string, unknown>;
-      const res = await fetch(`${bridge["baseUrl"]}/api/plugins/uninstall`, {
+      const res = await fetch(`${bridge.getBaseUrl()}/api/plugins/uninstall`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -361,7 +361,7 @@ export async function createServer(config: GatewayConfig) {
   app.post("/api/plugins/update", async (request, reply) => {
     try {
       const body = request.body as Record<string, unknown>;
-      const res = await fetch(`${bridge["baseUrl"]}/api/plugins/update`, {
+      const res = await fetch(`${bridge.getBaseUrl()}/api/plugins/update`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -424,7 +424,7 @@ export async function createServer(config: GatewayConfig) {
 
   app.post("/api/plugins/marketplace/refresh", async (request, reply) => {
     try {
-      const res = await fetch(`${bridge["baseUrl"]}/api/plugins/marketplace/refresh`, {
+      const res = await fetch(`${bridge.getBaseUrl()}/api/plugins/marketplace/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
@@ -438,7 +438,7 @@ export async function createServer(config: GatewayConfig) {
   app.post("/api/plugins/marketplace/install", async (request, reply) => {
     try {
       const body = request.body as Record<string, unknown>;
-      const res = await fetch(`${bridge["baseUrl"]}/api/plugins/marketplace/install`, {
+      const res = await fetch(`${bridge.getBaseUrl()}/api/plugins/marketplace/install`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -497,7 +497,7 @@ export async function createServer(config: GatewayConfig) {
   app.delete("/api/sessions/:sessionId", async (request, reply) => {
     try {
       const { sessionId } = request.params as { sessionId: string };
-      const res = await fetch(`${bridge["baseUrl"]}/api/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+      const res = await fetch(`${bridge.getBaseUrl()}/api/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
       return res.json();
     } catch (err) {
       reply.code(502);

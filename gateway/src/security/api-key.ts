@@ -43,7 +43,15 @@ export class ApiKeyAuth {
   }
 
   validateKey(key: string): boolean {
-    return this.validKeys.has(key);
+    for (const validKey of this.validKeys) {
+      if (key.length !== validKey.length) continue;
+      let mismatch = 0;
+      for (let i = 0; i < key.length; i++) {
+        mismatch |= key.charCodeAt(i) ^ validKey.charCodeAt(i);
+      }
+      if (mismatch === 0) return true;
+    }
+    return false;
   }
 
   extractKey(request: FastifyRequest): string | undefined {

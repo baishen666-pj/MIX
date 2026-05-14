@@ -26,8 +26,8 @@ export async function fetchJson<T>(
   const data: unknown = await res.json();
   const result = schema.safeParse(data);
   if (!result.success) {
-    console.warn(`API response validation failed for ${url}:`, result.error.flatten());
-    return data as T;
+    console.error(`API response validation failed for ${url}:`, result.error.flatten());
+    throw new ApiError(`Response validation failed for ${url}`, 502, result.error.flatten());
   }
   return result.data;
 }

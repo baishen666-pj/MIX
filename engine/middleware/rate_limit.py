@@ -25,17 +25,7 @@ class RateLimiter:
     def check(self, key: str) -> tuple[bool, dict]:
         now = time.time()
 
-        # Evict stale entries when dict grows too large
-        if len(self._minute_buckets) > 10000:
-            stale = [k for k, b in self._minute_buckets.items() if now - b.window_start > 7200]
-            for k in stale:
-                del self._minute_buckets[k]
-                self._hour_buckets.pop(k, None)
-
-        if len(self._hour_buckets) > 5000:
-            stale_hours = [k for k, b in self._hour_buckets.items() if now - b.window_start > 7200]
-            for k in stale_hours:
-                del self._hour_buckets[k]
+        self._evict_stale(now)
 
         # Per-minute
         minute = self._minute_buckets.get(key)
@@ -79,6 +69,14 @@ class RateLimiter:
                 self._rph - hour.count,
             ),
         }
+
+    def _evict_stale(self, now: float) -> None:
+        stale_minute = [k for k, b in self._minute_buckets.items() if now - b.window_start > 120]
+        for k in stale_minute:
+            del self._minute_buckets[k]
+        stale_hour = [k for k, b in self._hour_buckets.items() if now - b.window_start > 7200]
+        for k in stale_hour:
+            del self._hour_buckets[k]
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

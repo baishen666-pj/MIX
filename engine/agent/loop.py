@@ -181,15 +181,59 @@ class AgentLoop:
         sid = session_id or str(uuid.uuid4())
         async with self._sessions_lock:
             if sid not in self._sessions:
-                self._sessions[sid] = Session(
-                    id=sid,
-                    model=self.config.llm.model,
-                    created_at=_now_iso(),
-                )
+                loaded = await self._load_session_from_store(sid)
+                if loaded is not None:
+                    self._sessions[sid] = loaded
+                else:
+                    self._sessions[sid] = Session(
+                        id=sid,
+                        model=self.config.llm.model,
+                        created_at=_now_iso(),
+                    )
             return self._sessions[sid]
 
     def _get_tool_definitions(self) -> list[dict]:
         return self.tools.get_definitions()
+
+    async def _load_session_from_store(self, session_id: str) -> Session | None:
+        if not self.memory:
+            return None
+        try:
+            data = await self.memory.load_session(session_id)
+        except Exception:
+            log.warning("Failed to load session %s from store", session_id, exc_info=True)
+            return None
+        if data is None:
+            return None
+        messages = []
+        for m in data.get("messages", []):
+            if isinstance(m, dict) and "role" in m:
+                messages.append(Message(
+                    role=m["role"],
+                    content=m.get("content"),
+                    tool_call_id=m.get("tool_call_id"),
+                    tool_calls=m.get("tool_calls"),
+                    name=m.get("name"),
+                ))
+        return Session(
+            id=session_id,
+            messages=messages,
+            model=data.get("model", ""),
+            created_at=data.get("created_at", ""),
+        )
+
+    async def _persist_session(self, session: Session) -> None:
+        if not self.memory:
+            return
+        try:
+            data = {
+                "messages": [m.to_api_dict() for m in session.messages],
+                "model": session.model,
+                "created_at": session.created_at,
+            }
+            await self.memory.save_session(session.id, data)
+        except Exception:
+            log.warning("Failed to persist session %s", session.id, exc_info=True)
 
     async def _execute_tool_calls(self, tool_calls: list[dict]) -> list[Message]:
         tool_results: list[Message] = []
@@ -268,6 +312,7 @@ class AgentLoop:
 
             if not tool_calls:
                 await self._persist_memory(session, "assistant", content)
+                await self._persist_session(session)
                 return {
                     "id": str(uuid.uuid4()),
                     "session_id": session.id,
@@ -279,6 +324,7 @@ class AgentLoop:
 
             all_tool_events.extend(await self._process_tool_results(session, context_messages, tool_calls))
 
+        await self._persist_session(session)
         return {
             "id": str(uuid.uuid4()),
             "session_id": session.id,

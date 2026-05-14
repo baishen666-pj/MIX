@@ -24,9 +24,10 @@ export function useApi<T>(url: string | null, schema?: ZodType<T>, options?: Req
       if (schema) {
         const result = schema.safeParse(raw);
         if (!result.success) {
-          console.warn(`Validation failed for ${url}:`, result.error.flatten());
+          console.error(`Validation failed for ${url}:`, result.error.flatten());
+          throw new Error(`Response validation failed for ${url}`);
         }
-        setData((result.success ? result.data : raw) as T);
+        setData(result.data);
       } else {
         setData(raw as T);
       }
@@ -63,10 +64,11 @@ export function usePostApi<T>() {
       if (schema) {
         const result = schema.safeParse(raw);
         if (!result.success) {
-          console.warn(`Validation failed for POST ${url}:`, result.error.flatten());
+          console.error(`Validation failed for POST ${url}:`, result.error.flatten());
+          throw new Error(`Response validation failed for POST ${url}`);
         }
-        setData((result.success ? result.data : raw) as T);
-        return (result.success ? result.data : raw) as T;
+        setData(result.data);
+        return result.data;
       }
       setData(raw as T);
       return raw as T;

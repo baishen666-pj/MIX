@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -49,6 +50,7 @@ class ApprovalManager:
         self._ttl_seconds = ttl_seconds
         self._requests: dict[str, ApprovalRequest] = {}
         self._max_requests = 1000
+        self._waiters: dict[str, asyncio.Event] = {}
 
     async def request_approval(
         self,
@@ -75,6 +77,7 @@ class ApprovalManager:
                 oldest_id = min(self._requests, key=lambda k: self._requests[k].requested_at)
                 del self._requests[oldest_id]
             self._requests[req.id] = req
+            self._waiters[req.id] = asyncio.Event()
             log.info("Approval requested for %s (%s): %s", tool_name, danger_level, req.id)
 
         return req
@@ -86,6 +89,7 @@ class ApprovalManager:
         req.status = ApprovalStatus.APPROVED
         req.resolved_at = time.time()
         req.resolved_by = approver
+        self._waiters.pop(request_id, asyncio.Event()).set()
         log.info("Approved %s by %s", request_id, approver)
         return True
 
@@ -97,8 +101,20 @@ class ApprovalManager:
         req.resolved_at = time.time()
         req.resolved_by = approver
         req.reason = reason
+        self._waiters.pop(request_id, asyncio.Event()).set()
         log.info("Rejected %s by %s: %s", request_id, approver, reason)
         return True
+
+    async def wait_for_approval(self, request_id: str, timeout: float | None = None) -> ApprovalRequest | None:
+        """Wait for an approval request to be resolved. Returns the request or None on timeout."""
+        waiter = self._waiters.get(request_id)
+        if waiter is None:
+            return self._requests.get(request_id)
+        try:
+            await asyncio.wait_for(waiter.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            return None
+        return self._requests.get(request_id)
 
     def get_pending(self) -> list[ApprovalRequest]:
         self._cleanup_expired()

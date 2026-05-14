@@ -100,9 +100,8 @@ async def marketplace_list(q: str = "", category: str = "", tags: str = ""):
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
     entries = _pkg._marketplace.list_entries(query=q, category=category, tags=tag_list)
     installed = _installed_names()
-    for e in entries:
-        e["installed"] = e["name"] in installed or e["id"] in installed
-    return {"entries": entries, "categories": _pkg._marketplace.categories()}
+    enriched = [{**e, "installed": e["name"] in installed or e["id"] in installed} for e in entries]
+    return {"entries": enriched, "categories": _pkg._marketplace.categories()}
 
 
 @router.get("/plugins/marketplace/{entry_id}")
@@ -115,8 +114,7 @@ async def marketplace_detail(entry_id: str):
     if entry is None:
         raise HTTPException(404, f"Entry '{entry_id}' not found")
     installed = _installed_names()
-    entry["installed"] = entry["name"] in installed or entry["id"] in installed
-    return entry
+    return {**entry, "installed": entry["name"] in installed or entry["id"] in installed}
 
 
 @router.post("/plugins/marketplace/refresh")
