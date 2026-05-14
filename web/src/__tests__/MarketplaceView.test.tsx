@@ -48,7 +48,7 @@ function mockFetch(data: unknown, ok = true) {
       ok,
       status: ok ? 200 : 500,
       json: () => Promise.resolve(data),
-    })
+    } as Response)
   );
 }
 
@@ -58,7 +58,7 @@ describe("MarketplaceView", () => {
   });
 
   it("renders loading state", () => {
-    globalThis.fetch = vi.fn(() => new Promise(() => {}));
+    globalThis.fetch = vi.fn(() => new Promise<Response>(() => {}));
     render(<MarketplaceView />);
     expect(screen.getByText("status.loading")).toBeDefined();
   });
