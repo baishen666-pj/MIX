@@ -79,6 +79,7 @@ _config: Any = None
 _collaboration: Any = None
 _rag_collections: Any = None
 _rag_pipeline: Any = None
+_marketplace: Any = None
 
 
 # -- init_routes -----------------------------------------------------------
@@ -100,6 +101,7 @@ def init_routes(
     collaboration: Any | None = None,
     rag_collections: Any | None = None,
     rag_pipeline: Any | None = None,
+    marketplace: Any | None = None,
 ) -> None:
     """Initialise shared state consumed by all sub-module route handlers."""
     global \
@@ -119,7 +121,8 @@ def init_routes(
         _config, \
         _collaboration, \
         _rag_collections, \
-        _rag_pipeline
+        _rag_pipeline, \
+        _marketplace
     _agent_loop = agent_loop
     _memory = memory
     _skill_registry = skill_registry
@@ -137,3 +140,4 @@ def init_routes(
     _collaboration = collaboration
     _rag_collections = rag_collections
     _rag_pipeline = rag_pipeline
+    _marketplace = marketplace

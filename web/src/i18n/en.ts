@@ -139,6 +139,24 @@ const en = {
   "dashboard.metrics": "Metrics",
   "dashboard.llmStats": "LLM Stats",
   "dashboard.systemHealth": "System Health",
+
+  /* Marketplace */
+  "marketplace.title": "Marketplace",
+  "marketplace.search": "Search plugins...",
+  "marketplace.all": "All",
+  "marketplace.install": "Install",
+  "marketplace.installed": "Installed",
+  "marketplace.installing": "Installing...",
+  "marketplace.noResults": "No plugins found",
+  "marketplace.tryDifferent": "Try different keywords or category",
+  "marketplace.by": "by",
+  "marketplace.license": "License",
+  "marketplace.dependencies": "Dependencies",
+  "marketplace.refresh": "Refresh",
+  "marketplace.refreshing": "Refreshing...",
+  "marketplace.detail.back": "Back to list",
+  "marketplace.detail.triggers": "Triggers",
+  "marketplace.detail.source": "Source",
 } as const;
 
 export type TranslationKey = keyof typeof en;

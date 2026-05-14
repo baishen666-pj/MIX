@@ -30,6 +30,7 @@ from engine.rag.citations import CitationTracker
 from engine.rag.collections import CollectionManager
 from engine.rag.pipeline import RAGPipeline
 from engine.rag.reranker import SimpleReranker
+from engine.skills.marketplace import MarketplaceIndex
 from engine.skills.plugin_context import PluginContext
 from engine.skills.registry import SkillRegistry
 from engine.skills.watcher import SkillWatcher
@@ -66,6 +67,8 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     metrics = MetricsCollector()
     skill_watcher = SkillWatcher(Path("skills"), skill_registry)
     PluginContext(config=config, memory=memory, tools=tools, skill_registry=skill_registry)
+    marketplace = MarketplaceIndex()
+    marketplace.load()
 
     rag_collections: CollectionManager | None = None
     rag_pipeline: RAGPipeline | None = None
@@ -85,6 +88,7 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
         metrics=metrics,
         config=config,
         collaboration=collaboration,
+        marketplace=marketplace,
     )
 
     @asynccontextmanager
@@ -119,6 +123,7 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
             collaboration=collaboration,
             rag_collections=rag_collections,
             rag_pipeline=rag_pipeline,
+            marketplace=marketplace,
         )
         cron.start()
         await skill_watcher.start()

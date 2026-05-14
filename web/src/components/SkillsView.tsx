@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import type { Skill } from "../types";
 import { EmptyState } from "./EmptyState";
+import { MarketplaceView } from "./MarketplaceView";
 import { useLocale } from "../i18n";
 import { s } from "../styles";
 
@@ -17,7 +18,7 @@ interface SkillsViewProps {
   error: string | null;
 }
 
-type SkillsTab = "skills" | "install";
+type SkillsTab = "skills" | "marketplace" | "install";
 
 export function SkillsView({ skills, loading, error }: SkillsViewProps) {
   const { t } = useLocale();
@@ -145,7 +146,7 @@ export function SkillsView({ skills, loading, error }: SkillsViewProps) {
       <h2 style={s.panelTitle}>Skills</h2>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {(["skills", "install"] as SkillsTab[]).map((tab) => (
+        {(["skills", "marketplace", "install"] as SkillsTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => tab === "install" ? switchToInstall() : setActiveTab(tab)}
@@ -156,10 +157,12 @@ export function SkillsView({ skills, loading, error }: SkillsViewProps) {
               border: `1px solid ${activeTab === tab ? "var(--color-status-info)" : "var(--color-border)"}`,
             }}
           >
-            {tab === "skills" ? "Skills" : "Install"}
+            {tab === "skills" ? "Skills" : tab === "marketplace" ? t("marketplace.title") : "Install"}
           </button>
         ))}
       </div>
+
+      {activeTab === "marketplace" && <MarketplaceView />}
 
       {activeTab === "skills" && (
         <>

@@ -71,3 +71,21 @@ export interface CollaborationPlan {
   steps: { id: string; role: string; status: string; result?: string; error?: string }[];
   result?: Record<string, unknown>;
 }
+
+export interface MarketplaceEntry {
+  id: string;
+  name: string;
+  description: string;
+  long_description?: string;
+  version: string;
+  author: string;
+  category: string;
+  tags: string[];
+  source_url: string;
+  license?: string;
+  screenshots?: string[];
+  dependencies?: string[];
+  handler: string;
+  triggers: string[];
+  installed: boolean;
+}

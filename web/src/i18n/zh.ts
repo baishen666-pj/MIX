@@ -141,6 +141,24 @@ const zh: Record<TranslationKey, string> = {
   "dashboard.metrics": "指标",
   "dashboard.llmStats": "LLM 统计",
   "dashboard.systemHealth": "系统健康",
+
+  /* Marketplace */
+  "marketplace.title": "插件市场",
+  "marketplace.search": "搜索插件...",
+  "marketplace.all": "全部",
+  "marketplace.install": "安装",
+  "marketplace.installed": "已安装",
+  "marketplace.installing": "安装中...",
+  "marketplace.noResults": "未找到插件",
+  "marketplace.tryDifferent": "尝试不同的关键词或分类",
+  "marketplace.by": "作者",
+  "marketplace.license": "许可证",
+  "marketplace.dependencies": "依赖",
+  "marketplace.refresh": "刷新",
+  "marketplace.refreshing": "刷新中...",
+  "marketplace.detail.back": "返回列表",
+  "marketplace.detail.triggers": "触发器",
+  "marketplace.detail.source": "来源",
 };
 
 export default zh;

@@ -69,3 +69,24 @@ export const CollectionsSchema = z.object({
     embedding_model: z.string(),
   })),
 });
+
+export const MarketplaceSchema = z.object({
+  entries: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string(),
+    long_description: z.string().optional(),
+    version: z.string(),
+    author: z.string(),
+    category: z.string(),
+    tags: z.array(z.string()),
+    source_url: z.string(),
+    license: z.string().optional(),
+    screenshots: z.array(z.string()).optional(),
+    dependencies: z.array(z.string()).optional(),
+    handler: z.string(),
+    triggers: z.array(z.string()),
+    installed: z.boolean(),
+  })),
+  categories: z.array(z.string()),
+});
