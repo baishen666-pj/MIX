@@ -1,5 +1,9 @@
 appId: com.mix.desktop
 productName: MIX Agent
+publish:
+  provider: github
+  owner: mix-ai
+  repo: mix-desktop
 directories:
   buildResources: build
   output: dist

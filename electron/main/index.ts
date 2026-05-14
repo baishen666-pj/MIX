@@ -3,6 +3,7 @@ import { join } from "path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { electronApp, is } from "@electron-toolkit/utils";
+import { autoUpdater } from "electron-updater";
 import { ProcessManager } from "./process-manager";
 
 let mainWindow: BrowserWindow | null = null;
@@ -176,6 +177,29 @@ function setupIPC(): void {
   });
 
   ipcMain.handle("is-services-ready", () => processManager.isReady());
+
+  // Auto-update
+  ipcMain.handle("check-for-updates", () => {
+    if (!app.isPackaged) return { available: false, reason: "dev-mode" };
+    return autoUpdater.checkForUpdates().then((result) => {
+      if (!result) return { available: false };
+      return { available: true, version: result.updateInfo.version };
+    }).catch((err) => ({ available: false, error: (err as Error).message }));
+  });
+
+  ipcMain.handle("download-update", async () => {
+    try {
+      const result = await autoUpdater.downloadUpdate();
+      return { success: true, paths: result };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle("install-update", () => {
+    setImmediate(() => autoUpdater.quitAndInstall());
+    return { success: true };
+  });
 }
 
 function forwardStatusToRenderer(): void {
@@ -192,6 +216,16 @@ function forwardStatusToRenderer(): void {
 app.whenReady().then(async () => {
   app.name = "MIX";
   electronApp.setAppUserModelId("com.mix.desktop");
+
+  // Auto-updater config
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("update-downloaded", (info) => {
+    mainWindow?.webContents.send("update-downloaded", { version: info.version });
+  });
+  autoUpdater.on("download-progress", (progress) => {
+    mainWindow?.webContents.send("update-progress", { percent: progress.percent });
+  });
 
   setupIPC();
   createSplashWindow();

@@ -15,6 +15,24 @@ interface ConfigData {
   memory: { max_entries: number };
 }
 
+type LLMProvider = "openrouter" | "openai" | "anthropic" | "nvidia" | "local";
+
+const PROVIDER_DEFAULTS: Record<LLMProvider, { base_url: string; models: string[] }> = {
+  openrouter: { base_url: "https://openrouter.ai/api/v1", models: ["openai/gpt-4o", "anthropic/claude-sonnet-4-6", "google/gemini-2.5-pro", "deepseek/deepseek-chat"] },
+  openai: { base_url: "https://api.openai.com/v1", models: ["gpt-4o", "gpt-4o-mini", "o3", "o4-mini"] },
+  anthropic: { base_url: "https://api.anthropic.com", models: ["claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"] },
+  nvidia: { base_url: "https://integrate.api.nvidia.com/v1", models: ["meta/llama-3.3-70b-instruct", "mistralai/mixtral-8x22b-instruct"] },
+  local: { base_url: "http://localhost:11434/v1", models: ["llama3", "mistral", "codellama", "qwen2"] },
+};
+
+const PROVIDERS: { value: LLMProvider; label: string }[] = [
+  { value: "openrouter", label: "OpenRouter" },
+  { value: "openai", label: "OpenAI" },
+  { value: "anthropic", label: "Anthropic" },
+  { value: "nvidia", label: "NVIDIA NIM" },
+  { value: "local", label: "Local (Ollama)" },
+];
+
 export function SettingsView({ health, loading, error }: SettingsViewProps) {
   const status = health?.status as string ?? "unknown";
   const engine = health?.engine as Record<string, unknown> | undefined;
@@ -24,6 +42,8 @@ export function SettingsView({ health, loading, error }: SettingsViewProps) {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [editingLlm, setEditingLlm] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -61,6 +81,38 @@ export function SettingsView({ health, loading, error }: SettingsViewProps) {
     }
   }, [config]);
 
+  const handleProviderChange = useCallback((provider: LLMProvider) => {
+    if (!config) return;
+    const defaults = PROVIDER_DEFAULTS[provider];
+    const updated = JSON.parse(JSON.stringify(config));
+    updated.llm.provider = provider;
+    updated.llm.base_url = defaults.base_url;
+    if (!defaults.models.includes(updated.llm.model)) {
+      updated.llm.model = defaults.models[0];
+    }
+    setConfig(updated);
+  }, [config]);
+
+  const testConnection = useCallback(async () => {
+    if (!config) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/health");
+      const data = await res.json();
+      if (data.status === "ok" || data.status === "degraded") {
+        setTestResult({ ok: true, msg: "Connected" });
+      } else {
+        setTestResult({ ok: false, msg: "Unhealthy: " + (data.status ?? "unknown") });
+      }
+    } catch (err) {
+      setTestResult({ ok: false, msg: err instanceof Error ? err.message : "Connection failed" });
+    } finally {
+      setTesting(false);
+      setTimeout(() => setTestResult(null), 5000);
+    }
+  }, [config]);
+
   return (
     <main style={s.panel}>
       <h2 style={s.panelTitle}>Settings</h2>
@@ -80,6 +132,16 @@ export function SettingsView({ health, loading, error }: SettingsViewProps) {
             {status === "ok" ? "Connected" : "Degraded"}
           </span>
         </div>
+        <div style={{ marginTop: 8 }}>
+          <button onClick={testConnection} disabled={testing} style={{ ...testBtn, opacity: testing ? 0.5 : 1 }}>
+            {testing ? "Testing..." : "Test Connection"}
+          </button>
+          {testResult && (
+            <span style={{ fontSize: "var(--font-size-sm)", marginLeft: 8, color: testResult.ok ? "var(--color-ok, green)" : "var(--color-error, red)" }}>
+              {testResult.msg}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Active Channels */}
@@ -98,15 +160,55 @@ export function SettingsView({ health, loading, error }: SettingsViewProps) {
       {config && (
         <div style={s.section}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <div style={s.sectionTitle}>(LLM Provider)</div>
+            <div style={s.sectionTitle}>LLM Provider</div>
             <button onClick={() => setEditingLlm(!editingLlm)} style={editBtn}>
               {editingLlm ? "Lock" : "Edit"}
             </button>
           </div>
-          <ConfigField label="Provider" value={config.llm.provider} editable={editingLlm}
-            onChange={(v) => updateConfig("llm", "provider", v)} />
-          <ConfigField label="Model" value={config.llm.model} editable={editingLlm}
-            onChange={(v) => updateConfig("llm", "model", v)} />
+
+          {/* Provider selector */}
+          <div style={s.statusRow}>
+            <span style={s.statusKey}>Provider</span>
+            {editingLlm ? (
+              <select
+                value={config.llm.provider}
+                onChange={(e) => handleProviderChange(e.target.value as LLMProvider)}
+                style={selectStyle}
+              >
+                {PROVIDERS.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            ) : (
+              <span style={s.statusVal}>{PROVIDERS.find((p) => p.value === config.llm.provider)?.label ?? config.llm.provider}</span>
+            )}
+          </div>
+
+          {/* Model selector */}
+          <div style={s.statusRow}>
+            <span style={s.statusKey}>Model</span>
+            {editingLlm ? (
+              <div style={{ display: "flex", gap: 4, flex: 1, maxWidth: 250 }}>
+                <select
+                  value={PROVIDER_DEFAULTS[config.llm.provider as LLMProvider]?.models.includes(config.llm.model) ? config.llm.model : "__custom__"}
+                  onChange={(e) => {
+                    if (e.target.value !== "__custom__") updateConfig("llm", "model", e.target.value);
+                  }}
+                  style={selectStyle}
+                >
+                  {(PROVIDER_DEFAULTS[config.llm.provider as LLMProvider]?.models ?? []).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                  {!PROVIDER_DEFAULTS[config.llm.provider as LLMProvider]?.models.includes(config.llm.model) && (
+                    <option value="__custom__">{config.llm.model} (custom)</option>
+                  )}
+                </select>
+              </div>
+            ) : (
+              <span style={s.statusVal}>{config.llm.model}</span>
+            )}
+          </div>
+
           <ConfigField label="API Key" value={config.llm.api_key} editable={editingLlm} type="password"
             onChange={(v) => updateConfig("llm", "api_key", v)} />
           <ConfigField label="Base URL" value={config.llm.base_url} editable={editingLlm}
@@ -228,5 +330,20 @@ const inputStyle: React.CSSProperties = {
   padding: "2px 6px",
   fontSize: "var(--font-size-sm)",
   flex: 1,
-  maxWidth: 200,
+  maxWidth: 250,
+};
+
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  maxWidth: 250,
+};
+
+const testBtn: React.CSSProperties = {
+  background: "transparent",
+  color: "var(--color-text-secondary)",
+  border: "1px solid var(--color-border)",
+  borderRadius: "var(--radius-sm)",
+  padding: "4px 12px",
+  fontSize: "var(--font-size-sm)",
+  cursor: "pointer",
 };

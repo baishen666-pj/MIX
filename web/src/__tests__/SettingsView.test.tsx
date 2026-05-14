@@ -71,4 +71,9 @@ describe("SettingsView", () => {
     );
     expect(screen.getByText("mix-gateway")).toBeInTheDocument();
   });
+
+  it("shows test connection button", () => {
+    render(<SettingsView health={{}} loading={false} error={null} />);
+    expect(screen.getByText("Test Connection")).toBeInTheDocument();
+  });
 });
