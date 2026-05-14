@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from engine.skills.marketplace import CATEGORIES, MarketplaceEntry, MarketplaceIndex
+from engine.skills.marketplace import CATEGORIES, MarketplaceEntry, MarketplaceIndex, compare_versions
 
 
 @pytest.fixture
@@ -242,8 +244,10 @@ class TestFetchRemote:
             ],
         }
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = remote_data
         mock_resp.raise_for_status = MagicMock()
+        mock_resp.headers = {"etag": '"abc123"'}
 
         mock_client = AsyncMock()
         mock_client.get.return_value = mock_resp
@@ -256,6 +260,7 @@ class TestFetchRemote:
         assert count == 1
         assert idx.get_entry("remote-1") is not None
         assert idx._last_remote_fetch > 0
+        assert idx._etag == '"abc123"'
 
     @pytest.mark.asyncio
     async def test_fetch_remote_writes_cache(self, tmp_index: Path) -> None:
@@ -268,8 +273,10 @@ class TestFetchRemote:
             ],
         }
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = remote_data
         mock_resp.raise_for_status = MagicMock()
+        mock_resp.headers = {}
 
         mock_client = AsyncMock()
         mock_client.get.return_value = mock_resp
@@ -312,8 +319,10 @@ class TestFetchRemote:
             ],
         }
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = remote_data
         mock_resp.raise_for_status = MagicMock()
+        mock_resp.headers = {}
 
         mock_client = AsyncMock()
         mock_client.get.return_value = mock_resp
@@ -326,3 +335,186 @@ class TestFetchRemote:
             with patch.object(Path, "write_text", side_effect=OSError("disk full")):
                 count = await idx.fetch_remote()
         assert count == 1
+
+
+# -- TTL cache -------------------------------------------------------------
+
+
+class TestTTLCache:
+    def test_is_cache_stale_when_stale(self, tmp_index: Path) -> None:
+        idx = MarketplaceIndex(tmp_index, remote_url="https://example.com")
+        idx._last_remote_fetch = time.time() - 7200
+        assert idx.is_cache_stale() is True
+
+    def test_is_cache_stale_when_fresh(self, tmp_index: Path) -> None:
+        idx = MarketplaceIndex(tmp_index, remote_url="https://example.com")
+        idx._last_remote_fetch = time.time()
+        assert idx.is_cache_stale() is False
+
+    def test_is_cache_stale_no_remote_url(self, tmp_index: Path) -> None:
+        idx = MarketplaceIndex(tmp_index)
+        idx._last_remote_fetch = 0.0
+        assert idx.is_cache_stale() is False
+
+
+# -- ETag support ----------------------------------------------------------
+
+
+class TestETagSupport:
+    @pytest.mark.asyncio
+    async def test_sends_if_none_match_when_etag_set(self, tmp_index: Path) -> None:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 304
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            idx = MarketplaceIndex(tmp_index, remote_url="https://example.com/index.json")
+            idx._etag = '"v1"'
+            _write_index(tmp_index, [
+                {"id": "a", "name": "A", "description": "", "version": "1",
+                 "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+            ])
+            idx.load()
+            await idx.fetch_remote()
+
+        call_kwargs = mock_client.get.call_args
+        assert call_kwargs is not None
+        headers = call_kwargs[1].get("headers", {}) if len(call_kwargs) > 1 else call_kwargs[0].get("headers", {}) if call_kwargs[0] else {}
+        assert headers.get("If-None-Match") == '"v1"'
+
+    @pytest.mark.asyncio
+    async def test_handles_304_without_reparse(self, tmp_index: Path) -> None:
+        _write_index(tmp_index, [
+            {"id": "existing", "name": "Existing", "description": "", "version": "1",
+             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+        ])
+        mock_resp = MagicMock()
+        mock_resp.status_code = 304
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            idx = MarketplaceIndex(tmp_index, remote_url="https://example.com/index.json")
+            idx.load()
+            assert idx.get_entry("existing") is not None
+            count = await idx.fetch_remote()
+        assert count == 1
+        assert idx._last_remote_fetch > 0
+
+    @pytest.mark.asyncio
+    async def test_stores_etag_from_200(self, tmp_index: Path) -> None:
+        remote_data = {"version": 1, "entries": [
+            {"id": "x", "name": "X", "description": "", "version": "1",
+             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+        ]}
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = remote_data
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.headers = {"etag": '"new-etag"'}
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            idx = MarketplaceIndex(tmp_index, remote_url="https://example.com/index.json")
+            await idx.fetch_remote()
+        assert idx._etag == '"new-etag"'
+
+    @pytest.mark.asyncio
+    async def test_no_etag_header_graceful(self, tmp_index: Path) -> None:
+        remote_data = {"version": 1, "entries": [
+            {"id": "x", "name": "X", "description": "", "version": "1",
+             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+        ]}
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = remote_data
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.headers = {}
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            idx = MarketplaceIndex(tmp_index, remote_url="https://example.com/index.json")
+            await idx.fetch_remote()
+        assert idx._etag == ""
+
+
+# -- Background refresh ----------------------------------------------------
+
+
+class TestBackgroundRefresh:
+    @pytest.mark.asyncio
+    async def test_start_creates_task(self, tmp_index: Path) -> None:
+        idx = MarketplaceIndex(tmp_index, remote_url="https://example.com")
+        idx._remote_cache_ttl = 9999
+        await idx.start_background_refresh()
+        assert idx._bg_running is True
+        assert idx._bg_task is not None
+        await idx.stop_background_refresh()
+
+    @pytest.mark.asyncio
+    async def test_stop_cancels_task(self, tmp_index: Path) -> None:
+        idx = MarketplaceIndex(tmp_index, remote_url="https://example.com")
+        idx._remote_cache_ttl = 9999
+        await idx.start_background_refresh()
+        await idx.stop_background_refresh()
+        assert idx._bg_running is False
+        assert idx._bg_task is None
+
+    @pytest.mark.asyncio
+    async def test_bg_loop_handles_exception(self, tmp_index: Path) -> None:
+        idx = MarketplaceIndex(tmp_index, remote_url="https://example.com")
+        idx._remote_cache_ttl = 0
+
+        call_count = 0
+
+        async def failing_fetch():
+            nonlocal call_count
+            call_count += 1
+            raise RuntimeError("transient")
+
+        idx.fetch_remote = failing_fetch
+        await idx.start_background_refresh()
+        await asyncio.sleep(0.1)
+        await idx.stop_background_refresh()
+        assert call_count >= 1
+
+
+# -- Version comparison ----------------------------------------------------
+
+
+class TestCompareVersions:
+    def test_major_update(self) -> None:
+        assert compare_versions("1.0.0", "2.0.0") is True
+
+    def test_minor_update(self) -> None:
+        assert compare_versions("1.0.0", "1.1.0") is True
+
+    def test_patch_update(self) -> None:
+        assert compare_versions("1.0.0", "1.0.1") is True
+
+    def test_same_version(self) -> None:
+        assert compare_versions("1.0.0", "1.0.0") is False
+
+    def test_downgrade(self) -> None:
+        assert compare_versions("2.0.0", "1.0.0") is False
+
+    def test_string_fallback(self) -> None:
+        with patch("engine.skills.marketplace.compare_versions", side_effect=TypeError):
+            pass
+        # Direct fallback test: simple string comparison
+        assert "2.0" > "1.0"

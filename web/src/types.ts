@@ -88,4 +88,6 @@ export interface MarketplaceEntry {
   handler: string;
   triggers: string[];
   installed: boolean;
+  installed_version?: string;
+  update_available?: boolean;
 }

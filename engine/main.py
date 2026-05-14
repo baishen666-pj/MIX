@@ -131,11 +131,16 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
         )
         cron.start()
         await skill_watcher.start()
+        if marketplace._remote_url:
+            await marketplace.fetch_remote()
+            await marketplace.start_background_refresh()
+            log.info("Marketplace: remote index fetched, background refresh started")
         if skill_count > 0:
             log.info("Loaded %d skill(s)", skill_count)
         log.info("Tools: %s", ", ".join(tools.list_tools()))
         log.info("Agent router, MCP client, learning loop, and cron started")
         yield
+        await marketplace.stop_background_refresh()
         await skill_watcher.stop()
         cron.stop()
         await memory.flush()

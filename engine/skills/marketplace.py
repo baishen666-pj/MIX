@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -41,6 +42,16 @@ class MarketplaceEntry:
     readme_url: str = ""
 
 
+def compare_versions(installed: str, available: str) -> bool:
+    """Return True if *available* is newer than *installed*."""
+    try:
+        from packaging.version import Version
+
+        return Version(available) > Version(installed)
+    except Exception:
+        return available > installed
+
+
 class MarketplaceIndex:
     """Load and query a local JSON catalog of available plugins."""
 
@@ -50,6 +61,9 @@ class MarketplaceIndex:
         self._entries: dict[str, MarketplaceEntry] = {}
         self._last_remote_fetch: float = 0.0
         self._remote_cache_ttl: int = 3600
+        self._etag: str = ""
+        self._bg_running: bool = False
+        self._bg_task: asyncio.Task | None = None
 
     # -- loading -------------------------------------------------------------
 
@@ -100,10 +114,20 @@ class MarketplaceIndex:
         try:
             import httpx
 
+            headers: dict[str, str] = {}
+            if self._etag:
+                headers["If-None-Match"] = self._etag
             async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.get(self._remote_url)
-                resp.raise_for_status()
-                data = resp.json()
+                resp = await client.get(self._remote_url, headers=headers)
+            if resp.status_code == 304:
+                self._last_remote_fetch = time.time()
+                log.info("Marketplace: remote index unchanged (304)")
+                return len(self._entries)
+            resp.raise_for_status()
+            data = resp.json()
+            etag = resp.headers.get("etag", "")
+            if etag:
+                self._etag = etag
         except Exception as exc:
             log.warning("Remote marketplace fetch failed: %s, falling back to local", exc)
             return self.load()
@@ -118,6 +142,35 @@ class MarketplaceIndex:
 
     async def refresh(self) -> int:
         return await self.fetch_remote()
+
+    # -- TTL + background refresh -------------------------------------------
+
+    def is_cache_stale(self) -> bool:
+        if not self._remote_url:
+            return False
+        return time.time() > self._last_remote_fetch + self._remote_cache_ttl
+
+    def maybe_refresh_background(self) -> None:
+        if self.is_cache_stale():
+            asyncio.create_task(self.fetch_remote())
+
+    async def start_background_refresh(self) -> None:
+        self._bg_running = True
+        self._bg_task = asyncio.create_task(self._bg_loop())
+
+    async def stop_background_refresh(self) -> None:
+        self._bg_running = False
+        if self._bg_task:
+            self._bg_task.cancel()
+            self._bg_task = None
+
+    async def _bg_loop(self) -> None:
+        while self._bg_running:
+            await asyncio.sleep(self._remote_cache_ttl)
+            try:
+                await self.fetch_remote()
+            except Exception:
+                log.warning("Background marketplace refresh failed", exc_info=True)
 
     # -- queries -------------------------------------------------------------
 

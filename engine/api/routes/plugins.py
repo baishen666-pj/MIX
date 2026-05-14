@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from engine.skills.marketplace import compare_versions
+
 router = APIRouter()
 
 
@@ -83,12 +85,12 @@ async def plugins_list(q: str = ""):
 # ---------------------------------------------------------------------------
 
 
-def _installed_names() -> set[str]:
+def _installed_map() -> dict[str, str]:
     from engine.api import routes as _pkg
 
     if _pkg._skill_registry is None:
-        return set()
-    return {s.name for s in _pkg._skill_registry.skills.values()}
+        return {}
+    return {s.name: s.version for s in _pkg._skill_registry.skills.values()}
 
 
 @router.get("/plugins/marketplace")
@@ -97,10 +99,21 @@ async def marketplace_list(q: str = "", category: str = "", tags: str = ""):
 
     if _pkg._marketplace is None:
         return {"entries": [], "categories": []}
+    _pkg._marketplace.maybe_refresh_background()
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
     entries = _pkg._marketplace.list_entries(query=q, category=category, tags=tag_list)
-    installed = _installed_names()
-    enriched = [{**e, "installed": e["name"] in installed or e["id"] in installed} for e in entries]
+    installed_map = _installed_map()
+    enriched = []
+    for e in entries:
+        iv = installed_map.get(e["name"]) or installed_map.get(e["id"])
+        is_installed = iv is not None
+        update_available = is_installed and compare_versions(iv, e.get("version", "0"))
+        enriched.append({
+            **e,
+            "installed": is_installed,
+            "installed_version": iv,
+            "update_available": update_available,
+        })
     return {"entries": enriched, "categories": _pkg._marketplace.categories()}
 
 
@@ -113,8 +126,16 @@ async def marketplace_detail(entry_id: str):
     entry = _pkg._marketplace.get_entry(entry_id)
     if entry is None:
         raise HTTPException(404, f"Entry '{entry_id}' not found")
-    installed = _installed_names()
-    return {**entry, "installed": entry["name"] in installed or entry["id"] in installed}
+    installed_map = _installed_map()
+    iv = installed_map.get(entry["name"]) or installed_map.get(entry["id"])
+    is_installed = iv is not None
+    update_available = is_installed and compare_versions(iv, entry.get("version", "0"))
+    return {
+        **entry,
+        "installed": is_installed,
+        "installed_version": iv,
+        "update_available": update_available,
+    }
 
 
 @router.post("/plugins/marketplace/refresh")

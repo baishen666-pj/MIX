@@ -142,4 +142,75 @@ describe("MarketplaceView", () => {
       );
     });
   });
+
+  it("shows update badge for plugins with update available", async () => {
+    const entriesWithUpdate = [
+      {
+        ...mockEntries[1],
+        installed: true,
+        installed_version: "0.9.0",
+        update_available: true,
+      },
+    ];
+    globalThis.fetch = mockFetch({
+      entries: entriesWithUpdate,
+      categories: ["developer"],
+    });
+    render(<MarketplaceView />);
+    await waitFor(() => {
+      expect(screen.getByText("marketplace.updateAvailable")).toBeDefined();
+      expect(screen.getByText("marketplace.update")).toBeDefined();
+    });
+  });
+
+  it("shows only installed badge when no update available", async () => {
+    const entriesNoUpdate = [
+      {
+        ...mockEntries[1],
+        installed: true,
+        update_available: false,
+      },
+    ];
+    globalThis.fetch = mockFetch({
+      entries: entriesNoUpdate,
+      categories: ["developer"],
+    });
+    render(<MarketplaceView />);
+    await waitFor(() => {
+      expect(screen.getByText("marketplace.installed")).toBeDefined();
+    });
+    expect(screen.queryByText("marketplace.updateAvailable")).toBeNull();
+  });
+
+  it("calls update API on update button click", async () => {
+    const entriesWithUpdate = [
+      {
+        ...mockEntries[1],
+        installed: true,
+        installed_version: "0.9.0",
+        update_available: true,
+      },
+    ];
+    globalThis.fetch = mockFetch({
+      entries: entriesWithUpdate,
+      categories: ["developer"],
+    });
+    render(<MarketplaceView />);
+    await waitFor(() => {
+      expect(screen.getByText("marketplace.update")).toBeDefined();
+    });
+    const updateBtn = screen.getByText("marketplace.update");
+    const updateFetch = mockFetch({ status: "ok", skill: { name: "Calculator", version: "1.0" } });
+    globalThis.fetch = updateFetch;
+    fireEvent.click(updateBtn);
+    await waitFor(() => {
+      expect(updateFetch).toHaveBeenCalledWith(
+        "/api/plugins/update",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining("Calculator"),
+        })
+      );
+    });
+  });
 });

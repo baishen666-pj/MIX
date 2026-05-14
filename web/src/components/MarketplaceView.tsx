@@ -17,6 +17,7 @@ export function MarketplaceView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [detailEntry, setDetailEntry] = useState<MarketplaceEntry | null>(null);
 
@@ -64,6 +65,33 @@ export function MarketplaceView() {
       setError(err instanceof Error ? err.message : "Install failed");
     } finally {
       setInstallingId(null);
+    }
+  }, []);
+
+  const handleUpdate = useCallback(async (entry: MarketplaceEntry) => {
+    setUpdatingId(entry.id);
+    try {
+      const res = await fetch("/api/plugins/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: entry.name }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        setError(json.error ?? `HTTP ${res.status}`);
+      } else {
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.id === entry.id
+              ? { ...e, update_available: false, installed: true, installed_version: e.version }
+              : e
+          )
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setUpdatingId(null);
     }
   }, []);
 
@@ -115,8 +143,20 @@ export function MarketplaceView() {
             <span>{t("marketplace.dependencies")}: {detailEntry.dependencies.join(", ")}</span>
           )}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {detailEntry.installed ? (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {detailEntry.update_available ? (
+            <>
+              <span style={s.installedBadge}>{t("marketplace.installed")}</span>
+              <span style={s.updateBadge}>{t("marketplace.updateAvailable")}</span>
+              <button
+                onClick={() => handleUpdate(detailEntry)}
+                disabled={updatingId !== null}
+                style={updatingId === detailEntry.id ? { ...s.updateBtn, opacity: 0.6 } : s.updateBtn}
+              >
+                {updatingId === detailEntry.id ? t("marketplace.updating") : t("marketplace.update")}
+              </button>
+            </>
+          ) : detailEntry.installed ? (
             <span style={s.installedBadge}>{t("marketplace.installed")}</span>
           ) : (
             <button
@@ -212,7 +252,19 @@ export function MarketplaceView() {
               </div>
             )}
             <div style={{ marginTop: "auto", paddingTop: 4 }}>
-              {entry.installed ? (
+              {entry.update_available ? (
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={s.installedBadge}>{t("marketplace.installed")}</span>
+                  <span style={s.updateBadge}>{t("marketplace.updateAvailable")}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleUpdate(entry); }}
+                    disabled={updatingId !== null}
+                    style={updatingId === entry.id ? { ...s.updateBtn, opacity: 0.6 } : s.updateBtn}
+                  >
+                    {updatingId === entry.id ? t("marketplace.updating") : t("marketplace.update")}
+                  </button>
+                </div>
+              ) : entry.installed ? (
                 <span style={s.installedBadge}>{t("marketplace.installed")}</span>
               ) : (
                 <button
