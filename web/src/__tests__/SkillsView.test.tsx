@@ -6,7 +6,7 @@ import type { Skill } from "../types";
 describe("SkillsView", () => {
   it("shows loading state", () => {
     render(<SkillsView skills={[]} loading={true} error={null} />);
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.getByText("Loading skills...")).toBeInTheDocument();
   });
 
   it("shows error message", () => {

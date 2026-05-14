@@ -19,3 +19,15 @@ Thumbs.db
 .claude/
 web/test-results/
 .coverage
+
+# Build artifacts
+gateway/bundle/
+gateway/tsconfig.tsbuildinfo
+shared/protocols/*.js
+shared/protocols/*.js.map
+shared/protocols/*.d.ts
+shared/protocols/*.d.ts.map
+electron/package-lock.json
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

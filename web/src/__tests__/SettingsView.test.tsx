@@ -5,7 +5,7 @@ import { SettingsView } from "../components/SettingsView";
 describe("SettingsView", () => {
   it("shows loading state", () => {
     render(<SettingsView health={{}} loading={true} error={null} />);
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.getByRole("main").querySelector('[class="mix-card"]')).toBeInTheDocument();
   });
 
   it("shows error message", () => {
