@@ -31,7 +31,7 @@ class TestExtractPdf:
         mock_reader = MagicMock()
         mock_reader.pages = [mock_page1, mock_page2]
 
-        with patch("PyPDF2.PdfReader", return_value=mock_reader):
+        with patch("pypdf.PdfReader", return_value=mock_reader):
             pdf_path = tmp_path / "test.pdf"
             pdf_path.write_bytes(b"%PDF-1.4 fake")
             result = _extract_pdf(pdf_path)
@@ -49,7 +49,7 @@ class TestExtractPdf:
         mock_reader = MagicMock()
         mock_reader.pages = [mock_page1, mock_page2, mock_page3]
 
-        with patch("PyPDF2.PdfReader", return_value=mock_reader):
+        with patch("pypdf.PdfReader", return_value=mock_reader):
             pdf_path = tmp_path / "empty_pages.pdf"
             pdf_path.write_bytes(b"%PDF-1.4 fake")
             result = _extract_pdf(pdf_path)
@@ -60,7 +60,7 @@ class TestExtractPdf:
         mock_reader = MagicMock()
         mock_reader.pages = []
 
-        with patch("PyPDF2.PdfReader", return_value=mock_reader):
+        with patch("pypdf.PdfReader", return_value=mock_reader):
             pdf_path = tmp_path / "empty.pdf"
             pdf_path.write_bytes(b"%PDF-1.4 fake")
             result = _extract_pdf(pdf_path)
@@ -74,7 +74,7 @@ class TestExtractPdf:
         mock_reader = MagicMock()
         mock_reader.pages = [mock_page]
 
-        with patch("PyPDF2.PdfReader", return_value=mock_reader):
+        with patch("pypdf.PdfReader", return_value=mock_reader):
             pdf_path = tmp_path / "single.pdf"
             pdf_path.write_bytes(b"%PDF-1.4 fake")
             result = _extract_pdf(pdf_path)

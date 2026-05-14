@@ -18,7 +18,7 @@ def extract_text(file_path: str, mime_type: str = "") -> str:
 
 
 def _extract_pdf(path: Path) -> str:
-    from PyPDF2 import PdfReader
+    from pypdf import PdfReader
 
     reader = PdfReader(str(path))
     pages = []

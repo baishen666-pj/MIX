@@ -8,7 +8,7 @@ with empty/malformed LLM output.
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -110,7 +110,8 @@ class TestFallbackDecomposition:
     @pytest.mark.asyncio
     async def test_fallback_on_llm_exception(self) -> None:
         # Arrange
-        failing = AsyncMock(side_effect=RuntimeError("API unreachable"))
+        failing = MagicMock()
+        failing.complete = AsyncMock(side_effect=RuntimeError("API unreachable"))
         decomposer = TaskDecomposer(provider=failing)
 
         # Act
@@ -123,7 +124,8 @@ class TestFallbackDecomposition:
     @pytest.mark.asyncio
     async def test_fallback_on_json_parse_error(self) -> None:
         # Arrange
-        provider = AsyncMock(return_value={"content": "not json at all", "tool_calls": None})
+        provider = MagicMock()
+        provider.complete = AsyncMock(return_value={"content": "not json at all", "tool_calls": None})
         decomposer = TaskDecomposer(provider=provider)
 
         # Act
@@ -136,7 +138,8 @@ class TestFallbackDecomposition:
     @pytest.mark.asyncio
     async def test_fallback_on_non_array_json(self) -> None:
         # Arrange -- LLM returns a JSON object instead of array
-        provider = AsyncMock(return_value={"content": '{"id": "sub1"}', "tool_calls": None})
+        provider = MagicMock()
+        provider.complete = AsyncMock(return_value={"content": '{"id": "sub1"}', "tool_calls": None})
         decomposer = TaskDecomposer(provider=provider)
 
         # Act
