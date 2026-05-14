@@ -139,7 +139,7 @@ class TestMemoryEntryTouch:
     def test_touch_updates_accessed_at(self) -> None:
         # Arrange
         entry = MemoryEntry()
-        original = entry.accessed_at
+        _original = entry.accessed_at
 
         # Act
         entry.touch()

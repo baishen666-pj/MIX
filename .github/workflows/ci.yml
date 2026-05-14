@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run tests
-        run: npx vitest run --project mix-gateway
+        run: cd gateway && npx vitest run
 
   test-web:
     runs-on: ubuntu-latest

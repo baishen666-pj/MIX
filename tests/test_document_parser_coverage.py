@@ -12,10 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from engine.memory.document_parser import extract_text, _extract_pdf, _extract_docx
-
+from engine.memory.document_parser import _extract_docx, _extract_pdf, extract_text
 
 # --- _extract_pdf (lines 24-29) ---
 
@@ -181,7 +178,10 @@ class TestExtractTextDispatch:
         bin_path.write_bytes(b"binary")
 
         with patch("engine.memory.document_parser._extract_docx", return_value="docx from mime") as mock_docx:
-            result = extract_text(str(bin_path), mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            result = extract_text(
+                str(bin_path),
+                mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
             mock_docx.assert_called_once()
             assert result == "docx from mime"
 

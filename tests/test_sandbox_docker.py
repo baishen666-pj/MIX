@@ -85,7 +85,7 @@ class TestDockerBackendTimeoutFallback:
         # Assert
         assert result["exit_code"] == 0
         # Verify wait_for was called with the default timeout (99)
-        call_kwargs = mock_proc.communicate.call_args
+        _call_kwargs = mock_proc.communicate.call_args
         # The timeout is passed to asyncio.wait_for, not communicate directly,
         # so we check the mock_exec was called and result is successful.
         assert result["timed_out"] is False
@@ -106,7 +106,7 @@ class TestDockerBackendCwdParameter:
         result = await backend.execute("pwd", cwd="/some/path")
 
         # Assert -- Docker backend ignores cwd; it does not pass it to subprocess
-        args = list(mock_exec.call_args[0])
+        _args = list(mock_exec.call_args[0])
         # cwd should not appear as a keyword argument to create_subprocess_exec
         kwargs = mock_exec.call_args[1]
         assert "cwd" not in kwargs

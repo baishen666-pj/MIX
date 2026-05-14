@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from engine.rag.reranker import LLMReranker, RerankResult, SimpleReranker
-
 
 # ===================================================================
 # SimpleReranker
@@ -245,7 +243,7 @@ class TestLLMReranker:
         assert len(results) == 1
         # Verify the content in the prompt was truncated
         call_args = provider.complete.call_args
-        prompt = call_args.kwargs.get("messages", [{}])[0].get("content", "")
+        _prompt = call_args.kwargs.get("messages", [{}])[0].get("content", "")
         # The original document in the prompt should be truncated to ~200 chars
         assert len(documents[0]) == 500
         # The result should have the full original content

@@ -5,6 +5,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import aiosqlite
 
@@ -299,7 +300,7 @@ class MemoryStore:
         rows = await cursor.fetchall()
         return [self._row_to_entry(row) for row in rows]
 
-    def _row_to_entry(self, row: tuple) -> MemoryEntry:
+    def _row_to_entry(self, row: Any) -> MemoryEntry:
         return MemoryEntry(
             id=row[0],
             type=MemoryType(row[1]),

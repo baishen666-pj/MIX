@@ -11,15 +11,12 @@ Targets uncovered lines:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from engine.tools.edit import file_edit, file_edit_lines
-from engine.tools.types import ToolResult
-
 
 # --- file_edit: not a file (line 24) ---
 

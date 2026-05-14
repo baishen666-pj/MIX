@@ -1,8 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { TelegramChannel } from "../channels/telegram";
+import type { ChannelMessage } from "../channels/types";
 
 function makeTelegram(config = { botToken: "test-token" }) {
-  return new TelegramChannel(config, vi.fn());
+  const ch = new TelegramChannel(config);
+  ch.onMessage(vi.fn());
+  return ch;
+}
+
+function makeMsg(overrides: Partial<ChannelMessage> = {}): ChannelMessage {
+  return {
+    id: "test-id",
+    channel: "telegram",
+    userId: "test-user",
+    content: "hi",
+    metadata: { telegramChatId: 123 },
+    timestamp: new Date().toISOString(),
+    ...overrides,
+  };
 }
 
 describe("TelegramChannel", () => {
@@ -12,18 +27,19 @@ describe("TelegramChannel", () => {
 
   it("registers handler on construction", () => {
     const handler = vi.fn();
-    new TelegramChannel({ botToken: "tok" }, handler);
+    const ch = new TelegramChannel({ botToken: "tok" });
+    ch.onMessage(handler);
     expect(handler).not.toHaveBeenCalled();
   });
 
   it("send resolves safely without connection", async () => {
     const ch = makeTelegram();
-    await expect(ch.send({ content: "hi", metadata: { telegramChatId: "123" } })).resolves.toBeUndefined();
+    await expect(ch.send(makeMsg({ metadata: { telegramChatId: 123 } }))).resolves.toBeUndefined();
   });
 
   it("send resolves safely without metadata", async () => {
     const ch = makeTelegram();
-    await expect(ch.send({ content: "hi", metadata: {} })).resolves.toBeUndefined();
+    await expect(ch.send(makeMsg({ metadata: {} }))).resolves.toBeUndefined();
   });
 
   it("stop does not throw", () => {

@@ -16,6 +16,7 @@ async def transcribe(
 
     client = AsyncOpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
 
+    file_obj: object
     if audio_bytes is not None:
         import io
 

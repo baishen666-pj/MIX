@@ -6,7 +6,6 @@ from __future__ import annotations
 import time
 from unittest.mock import patch
 
-import pytest
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.responses import PlainTextResponse
@@ -14,7 +13,6 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from engine.middleware.rate_limit import Bucket, RateLimiter, RateLimitMiddleware
-
 
 # ===================================================================
 # RateLimiter -- hourly rate limiting

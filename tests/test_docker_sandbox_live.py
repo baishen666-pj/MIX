@@ -4,9 +4,9 @@ These tests require Docker to be running and will be skipped otherwise.
 Run with: python -m pytest tests/test_docker_sandbox_live.py -v
 """
 import asyncio
-import os
-import sys
+
 import pytest
+
 
 def docker_available():
     """Check if Docker is available and running."""
@@ -22,7 +22,7 @@ requires_docker = pytest.mark.skipif(
     reason="Docker not available"
 )
 
-from engine.sandbox.docker import DockerBackend
+from engine.sandbox.docker import DockerBackend  # noqa: E402
 
 
 @requires_docker
@@ -100,7 +100,7 @@ async def test_timeout_kills_container():
 async def test_read_only_filesystem():
     """Verify filesystem is read-only."""
     backend = DockerBackend()
-    result = await backend.execute("python3 -c 'open(\"/tmp/test\", \"w\").write(\"x\"); print(\"writable\")'")
+    _result = await backend.execute("python3 -c 'open(\"/tmp/test\", \"w\").write(\"x\"); print(\"writable\")'")
     # tmpfs /tmp should be writable, but other paths should not
     result2 = await backend.execute("python3 -c 'open(\"/home/test\", \"w\").write(\"x\")'")
     assert result2["exit_code"] != 0

@@ -124,7 +124,10 @@ class CollectionManager:
         row = await cursor.fetchone()
         if row is None:
             return None
-        doc_cursor = await self._db.execute("SELECT COUNT(*) as cnt FROM documents WHERE collection_id = ?", (row["id"],))
+        doc_cursor = await self._db.execute(
+            "SELECT COUNT(*) as cnt FROM documents WHERE collection_id = ?",
+            (row["id"],),
+        )
         doc_row = await doc_cursor.fetchone()
         doc_count = doc_row["cnt"] if doc_row else 0
         return DocumentCollection(

@@ -141,7 +141,7 @@ class TestFixedChunking:
         text = "x" * 10_000
         chunks = chunker.chunk(text, chunk_size=500, overlap=50)
 
-        expected_count = (10_000 - 50) // (500 - 50) + 1
+        _expected_count = (10_000 - 50) // (500 - 50) + 1
         # Exact count depends on implementation details, just verify it's reasonable
         assert len(chunks) > 15
         for chunk in chunks:

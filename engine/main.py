@@ -100,6 +100,7 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
         nonlocal rag_collections, rag_pipeline
         config.memory.db_path.parent.mkdir(parents=True, exist_ok=True)
         await memory.connect()
+        assert memory._db is not None
         rag_collections = CollectionManager(memory._db)
         await rag_collections.initialize()
         rag_pipeline = RAGPipeline(

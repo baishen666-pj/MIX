@@ -214,8 +214,8 @@ class TestFileList:
         result = await file_list(path=str(tmp_path))
         assert result.success
         lines = result.output.strip().split("\n")
-        dir_lines = [l for l in lines if l.startswith("d")]
-        file_lines = [l for l in lines if l.startswith("f")]
+        dir_lines = [line for line in lines if line.startswith("d")]
+        file_lines = [line for line in lines if line.startswith("f")]
         assert len(dir_lines) >= 1
         assert len(file_lines) >= 1
 

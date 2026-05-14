@@ -10,12 +10,22 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from engine.skills.marketplace import CATEGORIES, MarketplaceEntry, MarketplaceIndex, compare_versions
+from engine.skills.marketplace import MarketplaceIndex, compare_versions
 
 
 @pytest.fixture
 def tmp_index(tmp_path: Path) -> Path:
     return tmp_path / "marketplace.json"
+
+
+def _e(id: str, name: str, category: str, **kw: object) -> dict:
+    """Build a minimal marketplace entry dict for tests."""
+    return {
+        "id": id, "name": name, "description": kw.get("description", ""),
+        "version": kw.get("version", "1"), "category": category,
+        "tags": kw.get("tags", []), "source_url": kw.get("source_url", ""),
+        "handler": kw.get("handler", "python"), "triggers": kw.get("triggers", []),
+    }
 
 
 def _write_index(path: Path, entries: list[dict]) -> None:
@@ -167,9 +177,9 @@ class TestGetEntry:
 class TestCategories:
     def test_returns_sorted_unique(self, tmp_index: Path) -> None:
         _write_index(tmp_index, [
-            {"id": "a", "name": "A", "description": "", "version": "1", "category": "data", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-            {"id": "b", "name": "B", "description": "", "version": "1", "category": "ai", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-            {"id": "c", "name": "C", "description": "", "version": "1", "category": "data", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+            _e("a", "A", "data"),
+            _e("b", "B", "ai"),
+            _e("c", "C", "data"),
         ])
         idx = MarketplaceIndex(tmp_index)
         idx.load()
@@ -183,20 +193,20 @@ class TestRefresh:
     @pytest.mark.asyncio
     async def test_refresh_reloads(self, tmp_index: Path) -> None:
         _write_index(tmp_index, [
-            {"id": "a", "name": "A", "description": "", "version": "1", "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+            _e("a", "A", "utilities"),
         ])
         idx = MarketplaceIndex(tmp_index)
         assert idx.load() == 1
         _write_index(tmp_index, [
-            {"id": "a", "name": "A", "description": "", "version": "1", "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
-            {"id": "b", "name": "B", "description": "", "version": "1", "category": "data", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+            _e("a", "A", "utilities"),
+            _e("b", "B", "data"),
         ])
         assert await idx.refresh() == 2
 
     @pytest.mark.asyncio
     async def test_refresh_without_remote_falls_back_to_local(self, tmp_index: Path) -> None:
         _write_index(tmp_index, [
-            {"id": "a", "name": "A", "description": "", "version": "1", "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+            _e("a", "A", "utilities"),
         ])
         idx = MarketplaceIndex(tmp_index)
         assert await idx.refresh() == 1
@@ -383,7 +393,13 @@ class TestETagSupport:
 
         call_kwargs = mock_client.get.call_args
         assert call_kwargs is not None
-        headers = call_kwargs[1].get("headers", {}) if len(call_kwargs) > 1 else call_kwargs[0].get("headers", {}) if call_kwargs[0] else {}
+        headers = (
+            call_kwargs[1].get("headers", {})
+            if len(call_kwargs) > 1
+            else call_kwargs[0].get("headers", {})
+            if call_kwargs[0]
+            else {}
+        )
         assert headers.get("If-None-Match") == '"v1"'
 
     @pytest.mark.asyncio

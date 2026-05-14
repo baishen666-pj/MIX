@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from engine.skills.marketplace import MarketplaceIndex
@@ -16,16 +15,15 @@ def _build_client(
     marketplace: MarketplaceIndex | None = None,
     skill_registry: MagicMock | None = None,
 ) -> TestClient:
-    from engine.api.routes import init_routes
-    from engine.main import create_app
     from engine.config import MixConfig
+    from engine.main import create_app
 
     config = MixConfig.load()
     # Suppress side-effects
     config.memory.db_path = Path("test_mp.db")
 
     with (
-        patch("engine.main.MemoryStore") as MockMem,
+        patch("engine.main.MemoryStore") as MockMem,  # noqa: N806
         patch("engine.main.ToolRegistry"),
         patch("engine.main.DynamicToolRegistry"),
         patch("engine.main.ApprovalManager"),
@@ -53,7 +51,6 @@ def _build_client(
     # Manually init routes with our marketplace
     from engine.api import routes as routes_mod
     from engine.skills.loader import SkillLoader
-    from engine.tools.registry import ToolRegistry
 
     reg = skill_registry or MagicMock()
     reg.skills = {}

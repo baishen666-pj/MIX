@@ -53,5 +53,5 @@ async def synthesize_stream(
         input=text,
     )
 
-    async for chunk in response.iter_bytes(chunk_size=chunk_size):
+    async for chunk in response.iter_bytes(chunk_size=chunk_size):  # type: ignore[attr-defined]
         yield chunk

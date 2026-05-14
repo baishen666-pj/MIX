@@ -14,10 +14,10 @@ from engine.tools import image_gen as image_gen_tool
 from engine.tools import scraper as scraper_tool
 from engine.tools import search as search_tool
 from engine.tools import webfetch as webfetch_tool
-from engine.tools.sandbox import FileSandbox
 from engine.tools.approval import ApprovalManager
 from engine.tools.dynamic import DynamicToolRegistry
 from engine.tools.history import ToolHistory
+from engine.tools.sandbox import FileSandbox
 from engine.tools.types import ToolResult
 
 DANGER_LEVELS: dict[str, str] = {
@@ -96,11 +96,11 @@ class ToolRegistry:
     async def execute(self, tool_name: str, chain_id: str | None = None, **kwargs: Any) -> ToolResult:
         handler = self._mcp_tools.get(tool_name) or self._tools.get(tool_name)
         if handler is None and self._dynamic and self._dynamic.has_tool(tool_name):
-            result = await self._dynamic.execute(tool_name, **kwargs)
+            dyn_result = await self._dynamic.execute(tool_name, **kwargs)
             return ToolResult(
-                output=result.get("output", ""),
-                error=result.get("error"),
-                success=result.get("success", False),
+                output=dyn_result.get("output", ""),
+                error=dyn_result.get("error"),
+                success=dyn_result.get("success", False),
             )
         if handler is None:
             return ToolResult(
@@ -127,6 +127,7 @@ class ToolRegistry:
                 )
 
         start = time.monotonic()
+        result: ToolResult
         try:
             if tool_name == "bash" and self._sandbox:
                 result = await self._execute_sandboxed(kwargs)
@@ -149,11 +150,13 @@ class ToolRegistry:
         return result
 
     async def _execute_sandboxed(self, kwargs: dict[str, Any]) -> ToolResult:
+        if self._sandbox is None:
+            return ToolResult(output="", error="Sandbox not configured", success=False)
         command = kwargs.get("command", "")
         timeout = kwargs.get("timeout", 30)
         cwd = kwargs.get("cwd")
         try:
-            result = await self._sandbox.execute(command, timeout=timeout, cwd=cwd)
+            result = await self._sandbox.execute(command, timeout=timeout, cwd=cwd)  # type: ignore[attr-defined]
             success = result.get("exit_code", -1) == 0
             return ToolResult(
                 output=result.get("stdout", ""),

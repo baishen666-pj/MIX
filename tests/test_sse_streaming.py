@@ -28,7 +28,7 @@ def test_sse_format():
     assert "text/event-stream" in response.headers["content-type"]
 
     lines = response.text.strip().split("\n\n")
-    data_lines = [l for l in lines if l.startswith("data: ")]
+    data_lines = [line for line in lines if line.startswith("data: ")]
     assert len(data_lines) == 3  # 2 chunks + [DONE]
     assert data_lines[-1] == "data: [DONE]"
 

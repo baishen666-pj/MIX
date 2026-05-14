@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from engine.api.routes import _state as state
 from engine.api.schemas import ModelRouteRequest, ModelRouteResponse
 
 router = APIRouter()

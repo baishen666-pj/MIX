@@ -17,7 +17,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from engine.tools.webfetch import _strip_html, web_fetch
-from engine.tools.types import ToolResult
 
 
 def _make_mock_httpx_client(get_return=None, get_side_effect=None):
@@ -300,7 +299,7 @@ async def test_web_fetch_fallback_content_type():
     try:
         # format="markdown" still triggers _strip_html at line 25, so we use
         # a content-type that is not json and not html, with format not text/markdown
-        result = await web_fetch("https://example.com/binary", format="json")
+        _result = await web_fetch("https://example.com/binary", format="json")
         # format="json" is caught at line 22 since format=="json"
         # Actually line 29 needs: not json content-type AND not html content-type AND format not in ("text","markdown")
         # So format must be something else. But format param is string, default is "text"

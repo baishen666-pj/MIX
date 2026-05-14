@@ -80,7 +80,7 @@ async def file_edit_lines(
             )
 
         actual_end = min(end_line, len(lines))
-        removed = lines[start_line - 1 : actual_end]
+        _removed = lines[start_line - 1 : actual_end]
         new_lines = content.splitlines(keepends=True)
         if content and not content.endswith("\n"):
             new_lines[-1] += "\n"

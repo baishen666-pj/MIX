@@ -21,9 +21,9 @@ async def voice_tts(req: TTSRequest):
         raise HTTPException(400, "text is required")
     try:
         if req.stream:
-            from engine.voice.tts import synthesize_stream
-
             from starlette.responses import StreamingResponse
+
+            from engine.voice.tts import synthesize_stream
 
             return StreamingResponse(
                 synthesize_stream(req.text, voice=req.voice, model=req.model, api_key=_pkg._api_key),

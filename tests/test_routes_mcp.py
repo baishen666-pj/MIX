@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from engine.api.routes import init_routes, router
-
 
 # ---------------------------------------------------------------------------
 # Helpers

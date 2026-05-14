@@ -1,8 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
 import { WeChatChannel } from "../channels/wechat";
+import type { ChannelMessage } from "../channels/types";
 
 function makeWeChat(config = { webhookUrl: "https://example.com/webhook" }) {
-  return new WeChatChannel(config, vi.fn());
+  const ch = new WeChatChannel(config);
+  ch.onMessage(vi.fn());
+  return ch;
+}
+
+function makeMsg(overrides: Partial<ChannelMessage> = {}): ChannelMessage {
+  return {
+    id: "test-id",
+    channel: "wechat",
+    userId: "test-user",
+    content: "hi",
+    metadata: { wechatUserId: "user1" },
+    timestamp: new Date().toISOString(),
+    ...overrides,
+  };
 }
 
 describe("WeChatChannel", () => {
@@ -12,18 +27,19 @@ describe("WeChatChannel", () => {
 
   it("registers handler on construction", () => {
     const handler = vi.fn();
-    new WeChatChannel({ webhookUrl: "url" }, handler);
+    const ch = new WeChatChannel({ webhookUrl: "url" });
+    ch.onMessage(handler);
     expect(handler).not.toHaveBeenCalled();
   });
 
   it("send resolves safely without connection", async () => {
     const ch = makeWeChat();
-    await expect(ch.send({ content: "hi", metadata: { wechatUserId: "user1" } })).resolves.toBeUndefined();
+    await expect(ch.send(makeMsg({ metadata: { wechatUserId: "user1" } }))).resolves.toBeUndefined();
   });
 
   it("send resolves safely without metadata", async () => {
     const ch = makeWeChat();
-    await expect(ch.send({ content: "hi", metadata: {} })).resolves.toBeUndefined();
+    await expect(ch.send(makeMsg({ metadata: {} }))).resolves.toBeUndefined();
   });
 
   it("stop does not throw", () => {

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -102,7 +103,7 @@ async def agents_update(name: str, req: AgentUpdateRequest):
 
     if _pkg._agent_router is None:
         raise HTTPException(503, "Agent router not initialized")
-    updates = {}
+    updates: dict[str, Any] = {}
     if req.channels is not None:
         updates["channels"] = req.channels
     if req.allowed_users is not None:

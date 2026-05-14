@@ -82,6 +82,7 @@ async def execute(
 
 async def _run_in_docker(image: str, code: str, timeout: int, stdin: str) -> ToolResult:
     import os
+
     from engine.sandbox.docker import DockerBackend
 
     backend = DockerBackend(

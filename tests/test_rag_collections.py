@@ -235,7 +235,7 @@ class TestListCollections:
     @pytest.mark.asyncio
     async def test_list_reflects_document_counts(self, collections):
         coll1 = await collections.create_collection("has_docs")
-        coll2 = await collections.create_collection("no_docs")
+        _coll2 = await collections.create_collection("no_docs")
         await collections.add_document(coll1.id, "file.txt", "text/plain", "content")
 
         result = await collections.list_collections()
@@ -269,7 +269,7 @@ class TestDeleteCollection:
     @pytest.mark.asyncio
     async def test_delete_collection_removes_associated_documents(self, collections):
         coll = await collections.create_collection("doomed")
-        doc = await collections.add_document(coll.id, "file.txt", "text/plain", "content")
+        _doc = await collections.add_document(coll.id, "file.txt", "text/plain", "content")
 
         await collections.delete_collection(coll.id)
 
@@ -444,7 +444,7 @@ class TestDeleteDocument:
     @pytest.mark.asyncio
     async def test_delete_one_of_many_preserves_others(self, collections):
         coll = await collections.create_collection("docs")
-        doc1 = await collections.add_document(coll.id, "keep.txt", "text/plain", "aaa")
+        _doc1 = await collections.add_document(coll.id, "keep.txt", "text/plain", "aaa")
         doc2 = await collections.add_document(coll.id, "remove.txt", "text/plain", "bbb")
 
         await collections.delete_document(doc2.id)

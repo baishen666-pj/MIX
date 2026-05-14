@@ -3,10 +3,11 @@ from __future__ import annotations
 import ast
 import math
 import operator
+from typing import Any, Callable
 
 from engine.tools.types import ToolResult
 
-_SAFE_OPERATORS = {
+_SAFE_OPERATORS: dict[type[ast.AST], Callable[..., Any]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -67,7 +68,7 @@ def _eval_node(node: ast.AST):
             return _SAFE_OPERATORS[op_type](left, right)
         raise ValueError(f"Unsupported operator: {op_type.__name__}")
     if isinstance(node, ast.UnaryOp):
-        op_type = type(node.op)
+        op_type = type(node.op)  # type: ignore[assignment]
         if op_type in _SAFE_OPERATORS:
             operand = _eval_node(node.operand)
             return _SAFE_OPERATORS[op_type](operand)

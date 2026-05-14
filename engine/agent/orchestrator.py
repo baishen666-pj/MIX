@@ -87,7 +87,10 @@ class TaskOrchestrator:
         composed ``result``, and individual ``subtask_results``.
         """
         plan_id = str(uuid.uuid4())
-        results: dict[str, SubtaskResult] = {s.id: SubtaskResult(subtask_id=s.id, status=TaskStatus.PENDING) for s in subtasks}
+        results: dict[str, SubtaskResult] = {
+            s.id: SubtaskResult(subtask_id=s.id, status=TaskStatus.PENDING)
+            for s in subtasks
+        }
         plan = OrchestratorPlanStatus(
             plan_id=plan_id,
             status=TaskStatus.RUNNING,

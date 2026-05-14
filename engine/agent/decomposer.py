@@ -67,6 +67,7 @@ class TaskDecomposer:
             },
         ]
 
+        assert self._provider is not None  # guarded by caller
         response = await self._provider.complete(messages=messages, tools=None)
         content: str = response.get("content", "")
 

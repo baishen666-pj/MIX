@@ -202,7 +202,7 @@ class TestConfigPutEndpoint:
         # Arrange
         payload = {"engine": {"host": "0.0.0.0", "port": 9999, "debug": True}}
         # MixConfig is lazily imported inside the handler, so patch the source module
-        with patch("engine.config.MixConfig") as MockConfig:
+        with patch("engine.config.MixConfig") as MockConfig:  # noqa: N806
             mock_cfg = MagicMock()
             MockConfig._from_dict.return_value = mock_cfg
             resp = client.put("/api/config", json=payload)
@@ -407,7 +407,7 @@ class TestAgentsListEndpoint:
             ]
         )
         # Act
-        resp = c.get("/api/agents") if False else client.get("/api/agents")
+        resp = client.get("/api/agents")
         # Assert
         assert resp.status_code == 200
         agents = resp.json()["agents"]
@@ -431,9 +431,7 @@ class TestAgentsCreateEndpoint:
         ar = client._mocks["agent_router"]
         ar.register_agent = MagicMock(side_effect=ValueError("duplicate name"))
         # Act
-        resp = (
-            c.post("/api/agents", json={"name": "test"}) if False else client.post("/api/agents", json={"name": "test"})
-        )
+        resp = client.post("/api/agents", json={"name": "test"})
         # Assert
         assert resp.status_code == 400
 

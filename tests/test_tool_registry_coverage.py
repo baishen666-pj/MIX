@@ -12,13 +12,12 @@ Targets uncovered lines:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from engine.tools.registry import ToolRegistry
 from engine.tools.types import ToolResult
-
 
 # --- MCP tool registration and unregistration (lines 88-91) ---
 

@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from engine.api.routes import init_routes, router
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -161,7 +159,10 @@ class TestVoiceSTT:
             assert resp.status_code == 200
             call_kwargs = mock_trans.call_args
             # Verify api_key was passed
-            assert call_kwargs.kwargs.get("api_key") == "test-api-key" or call_kwargs[1].get("api_key") == "test-api-key"
+            assert (
+                call_kwargs.kwargs.get("api_key") == "test-api-key"
+                or call_kwargs[1].get("api_key") == "test-api-key"
+            )
 
     def test_returns_500_when_transcribe_raises(self):
         # Arrange
@@ -205,7 +206,11 @@ class TestVoiceSTT:
             )
         tc = TestClient(app, raise_server_exceptions=False)
 
-        with patch("engine.voice.stt.transcribe", new_callable=AsyncMock, side_effect=Exception("No API key configured")):
+        with patch(
+            "engine.voice.stt.transcribe",
+            new_callable=AsyncMock,
+            side_effect=Exception("No API key configured"),
+        ):
             # Act
             resp = tc.post("/api/voice/stt", files={"file": ("a.wav", b"data", "audio/wav")})
             # Assert
@@ -240,7 +245,11 @@ class TestVoiceSTTPath:
     def test_transcribes_from_file_path_successfully(self):
         # Arrange
         c = _build_client()
-        with patch("engine.voice.stt.transcribe", new_callable=AsyncMock, return_value="transcribed text") as mock_trans:
+        with patch(
+            "engine.voice.stt.transcribe",
+            new_callable=AsyncMock,
+            return_value="transcribed text",
+        ) as mock_trans:
             # Act
             resp = c.post("/api/voice/stt/path", json={"path": "/recordings/meeting.wav"})
             # Assert
@@ -248,12 +257,19 @@ class TestVoiceSTTPath:
             data = resp.json()
             assert data["text"] == "transcribed text"
             call_kwargs = mock_trans.call_args
-            assert call_kwargs.kwargs.get("audio_path") == "/recordings/meeting.wav" or call_kwargs[1].get("audio_path") == "/recordings/meeting.wav"
+            assert (
+                call_kwargs.kwargs.get("audio_path") == "/recordings/meeting.wav"
+                or call_kwargs[1].get("audio_path") == "/recordings/meeting.wav"
+            )
 
     def test_returns_500_when_file_path_transcribe_fails(self):
         # Arrange
         c = _build_client()
-        with patch("engine.voice.stt.transcribe", new_callable=AsyncMock, side_effect=FileNotFoundError("no such file")):
+        with patch(
+            "engine.voice.stt.transcribe",
+            new_callable=AsyncMock,
+            side_effect=FileNotFoundError("no such file"),
+        ):
             # Act
             resp = c.post("/api/voice/stt/path", json={"path": "/nonexistent/audio.wav"})
             # Assert

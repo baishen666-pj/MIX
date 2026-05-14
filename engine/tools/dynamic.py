@@ -177,7 +177,7 @@ class DynamicToolRegistry:
         except SyntaxError as exc:
             raise ValueError(f"Invalid Python syntax in handler code: {exc}") from exc
 
-        _BLOCKED_BUILTINS = frozenset(
+        _blocked_builtins = frozenset(
             {"__import__", "eval", "exec", "compile", "open", "breakpoint", "input"}
         )
 
@@ -195,13 +195,13 @@ class DynamicToolRegistry:
 
             if isinstance(node, ast.Call):
                 func = node.func
-                if isinstance(func, ast.Name) and func.id in _BLOCKED_BUILTINS:
+                if isinstance(func, ast.Name) and func.id in _blocked_builtins:
                     raise ValueError(f"Handler code uses blocked builtin: {func.id}")
                 if (
                     isinstance(func, ast.Attribute)
                     and isinstance(func.value, ast.Name)
                     and func.value.id == "builtins"
-                    and func.attr in _BLOCKED_BUILTINS
+                    and func.attr in _blocked_builtins
                 ):
                     raise ValueError(f"Handler code uses blocked builtin: builtins.{func.attr}")
 

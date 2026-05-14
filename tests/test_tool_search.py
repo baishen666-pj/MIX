@@ -61,7 +61,7 @@ class TestSuccessfulSearch:
         with patch("httpx.AsyncClient", return_value=_mock_response(data)):
             result = await web_search("test", limit=3)
             assert result.success
-            lines = [l for l in result.output.split("\n") if l.startswith("- ")]
+            lines = [line for line in result.output.split("\n") if line.startswith("- ")]
             assert len(lines) <= 3
 
     @pytest.mark.asyncio

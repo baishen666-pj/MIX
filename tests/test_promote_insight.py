@@ -19,7 +19,7 @@ async def test_promote_insight_api(tmp_path: Path) -> None:
     learning.nudge_interval = 2
 
     for i in range(10):
-        await learning.record_interaction(f"search query", "session-1")
+        await learning.record_interaction("search query", "session-1")
 
     insights = learning.get_pending_insights()
     if len(insights) == 0:
@@ -59,7 +59,7 @@ async def test_dismiss_insight(tmp_path: Path) -> None:
     learning.nudge_interval = 2
 
     for i in range(10):
-        await learning.record_interaction(f"query", "session-1")
+        await learning.record_interaction("query", "session-1")
 
     insights = learning.get_pending_insights()
     if len(insights) == 0:
