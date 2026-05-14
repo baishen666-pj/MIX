@@ -18,9 +18,9 @@ from engine.tools.scraper import (
     _extract_jsonld,
     _extract_links,
     _extract_text,
-    _validate_url,
     execute,
 )
+from engine.tools.url_utils import validate_url as _validate_url
 
 # --- SSRF URL Validation ---
 

@@ -169,7 +169,8 @@ async def test_web_fetch_json_content_type():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = mock_httpx
     try:
-        result = await web_fetch("https://api.example.com/data")
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://api.example.com/data")
         assert result.success is True
         assert '{"key": "value"}' == result.output
         assert result.metadata["url"] == "https://api.example.com/data"

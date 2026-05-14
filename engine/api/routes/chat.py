@@ -59,13 +59,16 @@ async def stream_chat_sse(message: str = Query(...), session_id: str | None = Qu
         raise HTTPException(503, "Agent loop not initialized")
 
     async def event_generator():
+        full_content = []
         async for chunk in _pkg._agent_loop.chat_stream(message, session_id=session_id):
             yield f"data: {json.dumps(chunk)}\n\n"
+            if chunk.get("delta"):
+                full_content.append(chunk["delta"])
             if chunk.get("done"):
                 break
         yield "data: [DONE]\n\n"
-
-    if _pkg._learning:
-        await _pkg._learning.record_interaction("user", message, session_id=session_id)
+        if _pkg._learning:
+            await _pkg._learning.record_interaction("user", message, session_id=session_id)
+            await _pkg._learning.record_interaction("assistant", "".join(full_content), session_id=session_id)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

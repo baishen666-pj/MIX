@@ -20,6 +20,31 @@ _BLOCKED_IMPORTS = frozenset(
         "pathlib",
         "ctypes",
         "multiprocessing",
+        "importlib",
+        "pickle",
+        "shelve",
+        "marshal",
+        "code",
+        "codeop",
+        "compileall",
+        "pty",
+        "fcntl",
+        "resource",
+        "signal",
+    }
+)
+
+_BLOCKED_ATTRS = frozenset(
+    {
+        "__import__",
+        "__builtins__",
+        "__code__",
+        "__globals__",
+        "__locals__",
+        "__class__",
+        "__subclasses__",
+        "__bases__",
+        "__mro__",
     }
 )
 
@@ -53,7 +78,32 @@ class DynamicToolRegistry:
         self._handlers: dict[str, Callable] = {}
         self._tools_dir = tools_dir
 
+    @staticmethod
+    def _analyze_danger_level(handler_code: str) -> str:
+        """Server-side danger level analysis based on code patterns."""
+        code_lower = handler_code.lower()
+        dangerous_patterns = [
+            "subprocess", "os.system", "os.exec", "eval(", "exec(",
+            "open(", "socket", "http", "request", "fetch",
+            "file", "write", "delete", "remove", "rmdir",
+            "import", "__", "compile(",
+        ]
+        moderate_patterns = [
+            "requests", "urllib", "httpx", "aiohttp",
+            "json.loads", "json.dumps", "read", "write",
+        ]
+        danger_score = sum(1 for p in dangerous_patterns if p in code_lower)
+        moderate_score = sum(1 for p in moderate_patterns if p in code_lower)
+
+        if danger_score >= 2:
+            return "dangerous"
+        if danger_score >= 1 or moderate_score >= 2:
+            return "moderate"
+        return "safe"
+
     async def register(self, definition: DynamicToolDef) -> None:
+        actual_level = self._analyze_danger_level(definition.handler_code)
+        definition.danger_level = actual_level
         handler = self._compile_handler(definition.handler_code)
         self._tools[definition.name] = definition
         self._handlers[definition.name] = handler
@@ -127,6 +177,10 @@ class DynamicToolRegistry:
         except SyntaxError as exc:
             raise ValueError(f"Invalid Python syntax in handler code: {exc}") from exc
 
+        _BLOCKED_BUILTINS = frozenset(
+            {"__import__", "eval", "exec", "compile", "open", "breakpoint", "input"}
+        )
+
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 names = [alias.name.split(".")[0] for alias in node.names]
@@ -139,27 +193,24 @@ class DynamicToolRegistry:
             if blocked:
                 raise ValueError(f"Handler code imports blocked module(s): {', '.join(sorted(blocked))}")
 
-            if isinstance(node, (ast.Call,)):
+            if isinstance(node, ast.Call):
                 func = node.func
-                if isinstance(func, ast.Name) and func.id in (
-                    "__import__",
-                    "eval",
-                    "exec",
-                    "compile",
-                    "open",
-                ):
+                if isinstance(func, ast.Name) and func.id in _BLOCKED_BUILTINS:
                     raise ValueError(f"Handler code uses blocked builtin: {func.id}")
                 if (
                     isinstance(func, ast.Attribute)
                     and isinstance(func.value, ast.Name)
                     and func.value.id == "builtins"
-                    and func.attr
-                    in (
-                        "__import__",
-                        "eval",
-                        "exec",
-                        "compile",
-                        "open",
-                    )
+                    and func.attr in _BLOCKED_BUILTINS
                 ):
                     raise ValueError(f"Handler code uses blocked builtin: builtins.{func.attr}")
+
+            if isinstance(node, ast.Attribute) and node.attr in _BLOCKED_ATTRS:
+                raise ValueError(f"Handler code accesses blocked attribute: {node.attr}")
+
+            if isinstance(node, ast.Name) and node.id in _BLOCKED_ATTRS:
+                raise ValueError(f"Handler code references blocked name: {node.id}")
+
+            if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+                if node.value.id in ("globals", "locals", "vars"):
+                    raise ValueError(f"Handler code uses blocked function as subscript: {node.value.id}")

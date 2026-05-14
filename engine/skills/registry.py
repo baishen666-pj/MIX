@@ -5,6 +5,8 @@ import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from engine.tools.url_utils import validate_github_url
+
 
 @dataclass
 class SkillManifest:
@@ -192,6 +194,11 @@ class SkillRegistry:
 
     def _clone_github(self, url: str, target: Path) -> bool:
         import subprocess
+
+        try:
+            validate_github_url(url)
+        except ValueError:
+            return False
 
         try:
             subprocess.run(

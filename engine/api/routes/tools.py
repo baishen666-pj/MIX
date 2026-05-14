@@ -43,7 +43,7 @@ async def tools_dynamic_register(req: DynamicToolRegisterRequest):
         handler_code=req.handler_code,
         examples=req.examples or [],
         constraints=req.constraints or {},
-        danger_level=req.danger_level,
+        danger_level="safe",
     )
     await _pkg._tools._dynamic.register(defn)
     return {"status": "ok", "tool": req.name}

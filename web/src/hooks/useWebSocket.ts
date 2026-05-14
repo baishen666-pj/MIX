@@ -72,6 +72,8 @@ export function useWebSocket(url: string) {
   const wsFailCount = useRef(0);
   const sendTimestampRef = useRef<number | null>(null);
   const firstDeltaReceivedRef = useRef(false);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
 
   const connect = useCallback(() => {
     const ws = new WebSocket(url);
@@ -95,11 +97,11 @@ export function useWebSocket(url: string) {
 
     ws.onmessage = (event) => {
       const chunk: StreamChunk = JSON.parse(event.data as string);
-      setMessages((prev) => applyChunk(prev, chunk, sessionId, setSessionId, sendTimestampRef.current, firstDeltaReceivedRef, (ms) => setTtfb(ms)));
+      setMessages((prev) => applyChunk(prev, chunk, sessionIdRef.current, setSessionId, sendTimestampRef.current, firstDeltaReceivedRef, (ms) => setTtfb(ms)));
     };
 
     wsRef.current = ws;
-  }, [url, sessionId]);
+  }, [url]);
 
   useEffect(() => {
     connect();
@@ -174,9 +176,9 @@ export function useWebSocket(url: string) {
       return;
     }
     if (wsRef.current) {
-      wsRef.current.send(JSON.stringify({ message: text, session_id: sessionId || undefined }));
+      wsRef.current.send(JSON.stringify({ message: text, session_id: sessionIdRef.current || undefined }));
     }
-  }, [sessionId, sendSSE]);
+  }, [sendSSE]);
 
   return { messages, connected, send, sessionId, loadHistory, clearMessages, ttfb };
 }

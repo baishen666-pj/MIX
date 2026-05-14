@@ -23,7 +23,7 @@ async def test_register_dynamic_tool(dynamic: DynamicToolRegistry):
         name="echo_test",
         description="Echo input",
         parameters={"type": "object", "properties": {"text": {"type": "string"}}},
-        handler_code="import json; args=json.loads(input()); print(args.get('text',''))",
+        handler_code="import json; print(json.dumps({'echo': 'ok'}))",
         danger_level="safe",
     )
     await dynamic.register(defn)

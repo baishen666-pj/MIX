@@ -4,9 +4,15 @@ import re
 from typing import Any
 
 from engine.tools.types import ToolResult
+from engine.tools.url_utils import validate_url
 
 
 async def web_fetch(url: str, format: str = "text", timeout: int = 20, **_: Any) -> ToolResult:
+    try:
+        validate_url(url)
+    except ValueError as e:
+        return ToolResult(output="", error=str(e), success=False)
+
     try:
         try:
             import httpx

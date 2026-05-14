@@ -1,0 +1,37 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  quick-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install Python deps
+        run: pip install -e ".[dev]"
+      - name: Install Node deps
+        run: npm ci && cd web && npm ci
+      - name: Ruff check
+        run: ruff check engine/ tests/
+      - name: Gateway typecheck
+        run: npx tsc --noEmit --project gateway/tsconfig.json
+      - name: Web typecheck
+        run: cd web && npx tsc --noEmit
+
+  quick-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/ --tb=short -q -x --ignore=tests/test_routes_marketplace.py

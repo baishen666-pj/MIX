@@ -54,8 +54,9 @@ function proxyRoute(
       return await res.json();
     } catch (err) {
       if (errorFallback !== undefined) return errorFallback;
+      logger.error("Proxy route error", err);
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 }
@@ -257,7 +258,7 @@ export async function createServer(config: GatewayConfig) {
       body = validate(chatRequestSchema, request.body);
     } catch (err) {
       reply.code(400);
-      return { error: "Validation failed", details: String(err) };
+      return { error: "Validation failed" };
     }
     try {
       const response = await bridge.chat({
@@ -266,8 +267,9 @@ export async function createServer(config: GatewayConfig) {
       });
       return response;
     } catch (err) {
+      logger.error("Chat error", err);
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -290,7 +292,8 @@ export async function createServer(config: GatewayConfig) {
       }
       reply.raw.write("data: [DONE]\n\n");
     } catch (err) {
-      reply.raw.write(`data: ${JSON.stringify({ error: String(err), done: true })}\n\n`);
+      logger.error("SSE stream error", err);
+      reply.raw.write(`data: ${JSON.stringify({ error: "Stream interrupted", done: true })}\n\n`);
     }
     reply.raw.end();
   });
@@ -305,7 +308,7 @@ export async function createServer(config: GatewayConfig) {
       body = validate(pairingApproveSchema, request.body);
     } catch (err) {
       reply.code(400);
-      return { error: "Validation failed", details: String(err) };
+      return { error: "Validation failed" };
     }
     const approved = pairing.approvePairing(body.channel, body.code);
     return { approved };
@@ -336,7 +339,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -351,7 +354,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -366,7 +369,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -378,7 +381,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -391,7 +394,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -404,7 +407,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -415,7 +418,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -428,7 +431,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -443,7 +446,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -464,7 +467,7 @@ export async function createServer(config: GatewayConfig) {
       return result;
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -481,7 +484,7 @@ export async function createServer(config: GatewayConfig) {
       return result;
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -498,7 +501,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -521,7 +524,7 @@ export async function createServer(config: GatewayConfig) {
       return res.json();
     } catch (err) {
       reply.code(502);
-      return { error: "Engine unreachable", details: String(err) };
+      return { error: "Engine unreachable" };
     }
   });
 
@@ -536,6 +539,12 @@ export async function createServer(config: GatewayConfig) {
 
   app.register(async function (fastify) {
     fastify.get("/ws/chat", { websocket: true }, (socket, req) => {
+      const origin = req.headers.origin;
+      if (origin && !corsOrigins.includes(origin)) {
+        socket.close(4003, "Forbidden origin");
+        return;
+      }
+
       if (apiKeyAuth.isEnabled()) {
         const token = (req.query as Record<string, string | undefined> | undefined)?.token
           || (req.headers["sec-websocket-protocol"] as string | undefined)
@@ -551,7 +560,7 @@ export async function createServer(config: GatewayConfig) {
         try {
           data = validate(wsMessageSchema, JSON.parse(raw.toString()));
         } catch (err) {
-          socket.send(JSON.stringify({ error: "Invalid message format", details: String(err) }));
+          socket.send(JSON.stringify({ error: "Invalid message format" }));
           return;
         }
         try {
@@ -674,7 +683,7 @@ export async function createServer(config: GatewayConfig) {
       return result;
     } catch (err) {
       reply.code(502);
-      return { error: "Voice transcription failed", details: String(err) };
+      return { error: "Voice transcription failed" };
     }
   });
 
@@ -706,7 +715,7 @@ export async function createServer(config: GatewayConfig) {
       return result;
     } catch (err) {
       reply.code(502);
-      return { error: "Voice synthesis failed", details: String(err) };
+      return { error: "Voice synthesis failed" };
     }
   });
 

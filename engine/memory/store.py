@@ -179,7 +179,10 @@ class MemoryStore:
             return []
         try:
             query_vec = self._embeddings.encode(query)
-            vec_cursor = await self._db.execute("SELECT mv.memory_id, mv.embedding FROM memory_vectors mv")
+            vec_cursor = await self._db.execute(
+                "SELECT mv.memory_id, mv.embedding FROM memory_vectors mv LIMIT ?",
+                (min(limit * 10, 1000),),
+            )
             vec_rows = await vec_cursor.fetchall()
             scored: list[tuple[float, str]] = []
             for row in vec_rows:
@@ -354,12 +357,17 @@ class MemoryStore:
     async def search_sessions(self, query: str, limit: int = 20, offset: int = 0) -> list[dict]:
         if self._db is None:
             raise RuntimeError("MemoryStore is not connected. Call connect() first.")
-        pattern = f"%{query}%"
-        cursor = await self._db.execute(
-            "SELECT id, data, updated_at FROM sessions WHERE data LIKE ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
-            (pattern, limit, offset),
+        id_cursor = await self._db.execute(
+            "SELECT id, data, updated_at FROM sessions WHERE id LIKE ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+            (f"%{query}%", limit, offset),
         )
-        rows = await cursor.fetchall()
+        rows = await id_cursor.fetchall()
+        if not rows:
+            content_cursor = await self._db.execute(
+                "SELECT id, data, updated_at FROM sessions WHERE data LIKE ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+                (f"%{query}%", limit, offset),
+            )
+            rows = await content_cursor.fetchall()
         results: list[dict] = []
         for r in rows:
             data = json.loads(r[1])

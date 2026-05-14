@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  build-electron:
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd electron && npm ci
+      - name: Build Electron
+        run: cd electron && npx electron-vite build
+      - name: Package
+        run: cd electron && npx electron-builder --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mix-${{ matrix.os }}
+          path: electron/dist/*.{exe,dmg,AppImage,deb}
+
+  docker-push:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push engine
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.engine
+          push: true
+          tags: ghcr.io/${{ github.repository }}/engine:${{ github.ref_name }}
+      - name: Build and push gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.gateway
+          push: true
+          tags: ghcr.io/${{ github.repository }}/gateway:${{ github.ref_name }}
+      - name: Build and push web
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.web
+          push: true
+          tags: ghcr.io/${{ github.repository }}/web:${{ github.ref_name }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-electron, docker-push]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true

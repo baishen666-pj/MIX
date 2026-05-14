@@ -1,43 +1,16 @@
 from __future__ import annotations
 
-import ipaddress
 import json
 import logging
 import re
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import httpx
 
 from engine.tools.types import ToolResult
+from engine.tools.url_utils import validate_url
 
 log = logging.getLogger("mix.scraper")
-
-
-def _validate_url(url: str) -> None:
-    """Validate URL to prevent SSRF attacks.
-
-    Rejects non-HTTP schemes and private/internal IP addresses.
-    Raises ValueError if the URL is unsafe.
-    """
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError(f"Blocked: scheme '{parsed.scheme}' is not allowed")
-
-    hostname = parsed.hostname
-    if not hostname:
-        raise ValueError("Blocked: URL has no hostname")
-
-    import socket
-
-    try:
-        resolved = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
-    except socket.gaierror as exc:
-        raise ValueError(f"Blocked: cannot resolve hostname '{hostname}'") from exc
-
-    for family, _type, _proto, _canonname, sockaddr in resolved:
-        addr = ipaddress.ip_address(sockaddr[0])
-        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
-            raise ValueError(f"Blocked: hostname '{hostname}' resolves to private/reserved IP {addr}")
 
 
 async def execute(
@@ -49,7 +22,7 @@ async def execute(
     **kwargs,
 ) -> ToolResult:
     try:
-        _validate_url(url)
+        validate_url(url)
     except ValueError as e:
         return ToolResult(output="", error=str(e), success=False)
 
