@@ -123,7 +123,7 @@ async def marketplace_refresh():
 
     if _pkg._marketplace is None:
         raise HTTPException(503, "Marketplace not initialized")
-    count = _pkg._marketplace.refresh()
+    count = await _pkg._marketplace.refresh()
     return {"status": "ok", "entries_loaded": count}
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -43,21 +44,16 @@ class MarketplaceEntry:
 class MarketplaceIndex:
     """Load and query a local JSON catalog of available plugins."""
 
-    def __init__(self, index_path: Path | None = None) -> None:
+    def __init__(self, index_path: Path | None = None, remote_url: str | None = None) -> None:
         self._path = index_path or Path("data/marketplace_index.json")
+        self._remote_url = remote_url
         self._entries: dict[str, MarketplaceEntry] = {}
+        self._last_remote_fetch: float = 0.0
+        self._remote_cache_ttl: int = 3600
 
     # -- loading -------------------------------------------------------------
 
-    def load(self) -> int:
-        if not self._path.exists():
-            log.warning("Marketplace index not found: %s", self._path)
-            return 0
-        try:
-            raw = json.loads(self._path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
-            log.error("Failed to parse marketplace index: %s", exc)
-            return 0
+    def _parse_entries(self, raw: dict | list) -> int:
         entries = raw.get("entries", []) if isinstance(raw, dict) else []
         self._entries.clear()
         for item in entries:
@@ -86,8 +82,42 @@ class MarketplaceIndex:
         log.info("Marketplace: loaded %d entries", len(self._entries))
         return len(self._entries)
 
-    def refresh(self) -> int:
-        return self.load()
+    def load(self) -> int:
+        if not self._path.exists():
+            log.warning("Marketplace index not found: %s", self._path)
+            return 0
+        try:
+            raw = json.loads(self._path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            log.error("Failed to parse marketplace index: %s", exc)
+            return 0
+        return self._parse_entries(raw)
+
+    async def fetch_remote(self) -> int:
+        """Fetch marketplace index from remote URL, fall back to local cache."""
+        if not self._remote_url:
+            return self.load()
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(self._remote_url)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as exc:
+            log.warning("Remote marketplace fetch failed: %s, falling back to local", exc)
+            return self.load()
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            self._path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        except OSError as exc:
+            log.warning("Failed to cache remote index: %s", exc)
+        count = self._parse_entries(data)
+        self._last_remote_fetch = time.time()
+        return count
+
+    async def refresh(self) -> int:
+        return await self.fetch_remote()
 
     # -- queries -------------------------------------------------------------
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -177,7 +178,8 @@ class TestCategories:
 
 
 class TestRefresh:
-    def test_refresh_reloads(self, tmp_index: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_refresh_reloads(self, tmp_index: Path) -> None:
         _write_index(tmp_index, [
             {"id": "a", "name": "A", "description": "", "version": "1", "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
         ])
@@ -187,7 +189,15 @@ class TestRefresh:
             {"id": "a", "name": "A", "description": "", "version": "1", "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
             {"id": "b", "name": "B", "description": "", "version": "1", "category": "data", "tags": [], "source_url": "", "handler": "python", "triggers": []},
         ])
-        assert idx.refresh() == 2
+        assert await idx.refresh() == 2
+
+    @pytest.mark.asyncio
+    async def test_refresh_without_remote_falls_back_to_local(self, tmp_index: Path) -> None:
+        _write_index(tmp_index, [
+            {"id": "a", "name": "A", "description": "", "version": "1", "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+        ])
+        idx = MarketplaceIndex(tmp_index)
+        assert await idx.refresh() == 1
 
 
 # -- seed file ------------------------------------------------------------
@@ -205,3 +215,114 @@ class TestSeedIndex:
         ids = {e["id"] for e in entries}
         assert "weather-fetcher" in ids
         assert "calculator" in ids
+
+
+# -- fetch_remote -----------------------------------------------------------
+
+
+class TestFetchRemote:
+    @pytest.mark.asyncio
+    async def test_fetch_remote_without_url_falls_back(self, tmp_index: Path) -> None:
+        _write_index(tmp_index, [
+            {"id": "a", "name": "A", "description": "", "version": "1",
+             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+        ])
+        idx = MarketplaceIndex(tmp_index)
+        count = await idx.fetch_remote()
+        assert count == 1
+
+    @pytest.mark.asyncio
+    async def test_fetch_remote_success(self, tmp_index: Path) -> None:
+        remote_data = {
+            "version": 1,
+            "entries": [
+                {"id": "remote-1", "name": "Remote", "description": "from remote",
+                 "version": "2.0", "category": "ai", "tags": ["remote"],
+                 "source_url": "", "handler": "python", "triggers": []},
+            ],
+        }
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = remote_data
+        mock_resp.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            idx = MarketplaceIndex(tmp_index, remote_url="https://example.com/index.json")
+            count = await idx.fetch_remote()
+        assert count == 1
+        assert idx.get_entry("remote-1") is not None
+        assert idx._last_remote_fetch > 0
+
+    @pytest.mark.asyncio
+    async def test_fetch_remote_writes_cache(self, tmp_index: Path) -> None:
+        remote_data = {
+            "version": 1,
+            "entries": [
+                {"id": "cached", "name": "Cached", "description": "cached entry",
+                 "version": "1.0", "category": "utilities", "tags": [],
+                 "source_url": "", "handler": "python", "triggers": []},
+            ],
+        }
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = remote_data
+        mock_resp.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            idx = MarketplaceIndex(tmp_index, remote_url="https://example.com/index.json")
+            await idx.fetch_remote()
+
+        assert tmp_index.exists()
+        cached = json.loads(tmp_index.read_text(encoding="utf-8"))
+        assert len(cached["entries"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_fetch_remote_failure_falls_back(self, tmp_index: Path) -> None:
+        _write_index(tmp_index, [
+            {"id": "local", "name": "Local", "description": "", "version": "1",
+             "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+        ])
+
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = Exception("network error")
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            idx = MarketplaceIndex(tmp_index, remote_url="https://example.com/index.json")
+            count = await idx.fetch_remote()
+        assert count == 1
+        assert idx.get_entry("local") is not None
+
+    @pytest.mark.asyncio
+    async def test_fetch_remote_cache_write_failure_does_not_crash(self, tmp_index: Path) -> None:
+        remote_data = {
+            "version": 1,
+            "entries": [
+                {"id": "x", "name": "X", "description": "", "version": "1",
+                 "category": "utilities", "tags": [], "source_url": "", "handler": "python", "triggers": []},
+            ],
+        }
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = remote_data
+        mock_resp.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            idx = MarketplaceIndex(tmp_index, remote_url="https://example.com/index.json")
+            # Make write_text raise OSError
+            with patch.object(Path, "write_text", side_effect=OSError("disk full")):
+                count = await idx.fetch_remote()
+        assert count == 1

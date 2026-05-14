@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -67,7 +68,10 @@ def create_app(config: MixConfig | None = None) -> FastAPI:
     metrics = MetricsCollector()
     skill_watcher = SkillWatcher(Path("skills"), skill_registry)
     PluginContext(config=config, memory=memory, tools=tools, skill_registry=skill_registry)
-    marketplace = MarketplaceIndex()
+    marketplace = MarketplaceIndex(
+        remote_url=os.environ.get("MARKETPLACE_REMOTE_URL") or None,
+    )
+    marketplace._remote_cache_ttl = int(os.environ.get("MARKETPLACE_CACHE_TTL", "3600"))
     marketplace.load()
 
     rag_collections: CollectionManager | None = None
