@@ -50,7 +50,8 @@ async def test_web_fetch_httpx_not_installed():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = None
     try:
-        result = await web_fetch("https://example.com")
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://example.com")
         assert result.success is False
         assert "httpx" in result.error
     finally:
@@ -77,7 +78,8 @@ async def test_web_fetch_timeout():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = mock_httpx
     try:
-        result = await web_fetch("https://slow.example.com", timeout=1)
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://slow.example.com", timeout=1)
         assert result.success is False
         assert result.error is not None
     finally:
@@ -108,7 +110,8 @@ async def test_web_fetch_404_response():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = mock_httpx
     try:
-        result = await web_fetch("https://example.com/missing")
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://example.com/missing")
         assert result.success is False
         assert "404" in result.error
     finally:
@@ -136,7 +139,8 @@ async def test_web_fetch_500_response():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = mock_httpx
     try:
-        result = await web_fetch("https://example.com/broken")
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://example.com/broken")
         assert result.success is False
         assert "500" in result.error
     finally:
@@ -200,7 +204,8 @@ async def test_web_fetch_format_json_parameter():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = mock_httpx
     try:
-        result = await web_fetch("https://example.com/api", format="json")
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://example.com/api", format="json")
         assert result.success is True
         assert '{"result": true}' == result.output
     finally:
@@ -233,7 +238,8 @@ async def test_web_fetch_html_content_type():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = mock_httpx
     try:
-        result = await web_fetch("https://example.com/page")
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://example.com/page")
         assert result.success is True
         assert "Title" in result.output
         assert "Hello world" in result.output
@@ -264,7 +270,8 @@ async def test_web_fetch_format_text_explicit():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = mock_httpx
     try:
-        result = await web_fetch("https://example.com/txt", format="text")
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://example.com/txt", format="text")
         assert result.success is True
         assert "plain text" in result.output
     finally:
@@ -340,7 +347,8 @@ async def test_web_fetch_fallback_unexpected_format():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = mock_httpx
     try:
-        result = await web_fetch("https://example.com/binary", format="raw")
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://example.com/binary", format="raw")
         assert result.success is True
         assert len(result.output) == 50000
         assert result.metadata["content_type"] == "application/octet-stream"
@@ -368,7 +376,8 @@ async def test_web_fetch_generic_exception():
     original = sys.modules.get("httpx")
     sys.modules["httpx"] = mock_httpx
     try:
-        result = await web_fetch("https://example.com")
+        with patch("engine.tools.webfetch.validate_url"):
+            result = await web_fetch("https://example.com")
         assert result.success is False
         assert "unexpected failure" in result.error
     finally:

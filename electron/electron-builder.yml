@@ -2,8 +2,8 @@ appId: com.mix.desktop
 productName: MIX Agent
 publish:
   provider: github
-  owner: mix-ai
-  repo: mix-desktop
+  owner: baishen666-pj
+  repo: MIX
 directories:
   buildResources: build
   output: dist

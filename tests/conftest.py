@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import warnings
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +11,10 @@ from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from engine.api.routes import init_routes, router
+
+# Suppress Windows ProactorEventLoop "Event loop is closed" warnings
+if sys.platform == "win32":
+    warnings.filterwarnings("ignore", message=".*Event loop is closed.*", category=ResourceWarning)
 
 
 def _make_mock_agent_loop() -> AsyncMock:

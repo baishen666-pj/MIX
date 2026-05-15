@@ -1,4 +1,4 @@
-.PHONY: install dev engine gateway test test-engine test-gateway test-web clean setup docker-up docker-down docker-build docker-logs desktop perf perf-clean
+.PHONY: install dev engine gateway test test-engine test-gateway test-web lint lint-engine lint-gateway lint-web typecheck typecheck-engine typecheck-gateway clean setup docker-up docker-down docker-build docker-logs desktop perf perf-clean
 
 PYTHON ?= python3
 NODE ?= node
@@ -29,6 +29,25 @@ test-gateway:
 
 test-web:
 	cd web && npx vitest run
+
+lint: lint-engine lint-gateway lint-web
+
+lint-engine:
+	$(PYTHON) -m ruff check engine/ tests/
+
+lint-gateway:
+	cd gateway && npx tsc --noEmit
+
+lint-web:
+	cd web && npx tsc --noEmit
+
+typecheck: typecheck-engine typecheck-gateway
+
+typecheck-engine:
+	$(PYTHON) -m mypy engine/ --config-file pyproject.toml
+
+typecheck-gateway:
+	cd gateway && npx tsc --noEmit
 
 clean:
 	rm -rf gateway/dist gateway/node_modules

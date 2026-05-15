@@ -83,7 +83,7 @@ export class ApiKeyAuth {
       return;
     }
 
-    if (!this.validKeys.has(key)) {
+    if (!this.validateKey(key)) {
       logger.warn(`Invalid API key attempt from ${request.ip}`);
       reply.code(401);
       reply.send({ error: "Invalid API key" });

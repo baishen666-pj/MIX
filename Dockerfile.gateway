@@ -28,4 +28,4 @@ USER mixuser
 
 EXPOSE 18789
 
-CMD ["node", "gateway/dist/gateway/src/index.js"]
+CMD ["node", "gateway/dist/index.js"]

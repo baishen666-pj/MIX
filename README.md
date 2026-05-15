@@ -126,20 +126,20 @@ curl -X POST http://localhost:18700/api/learning/insights/<id>/promote
 
 | Channel | Status | Config |
 |---------|--------|--------|
-| WebChat | Working | Built-in |
-| Telegram | Working | `TELEGRAM_BOT_TOKEN` |
-| Discord | Working | `DISCORD_BOT_TOKEN` |
-| Slack | Working | `SLACK_BOT_TOKEN` |
-| WeChat | Working | `WECHAT_WEBHOOK_URL` (webhook) or `WECHAT_CORP_ID`+`WECHAT_AGENT_ID`+`WECHAT_SECRET` (app) |
-| IRC | Working | `IRC_SERVER`+`IRC_NICK`+`IRC_CHANNELS` |
-| WhatsApp | Working | `WHATSAPP_ENABLED=true` (QR code pairing) |
-| Matrix | Working | `MATRIX_HOMESERVER`+`MATRIX_ACCESS_TOKEN` |
-| LINE | Working | `LINE_CHANNEL_ACCESS_TOKEN` (webhook at `/api/line/webhook`) |
-| Google Chat | Working | `GOOGLE_CHAT_WEBHOOK_URL` (webhook at `/api/google-chat/webhook`) |
-| Signal | Working | `SIGNAL_SERVER_URL`+`SIGNAL_PHONE_NUMBER` (requires signal-cli-rest) |
-| Teams | Working | `TEAMS_BOT_ID` (webhook at `/api/teams/webhook`) |
-| iMessage | Working | `IMESSAGE_BUSINESS_ID` (webhook at `/api/imessage/webhook`) |
-| Feishu | Working | `FEISHU_APP_ID`+`FEISHU_APP_SECRET` (webhook at `/api/feishu/webhook`) |
+| WebChat | Stable | Built-in |
+| Telegram | Stable | `TELEGRAM_BOT_TOKEN` |
+| Discord | Stable | `DISCORD_BOT_TOKEN` |
+| Slack | Stable | `SLACK_BOT_TOKEN` |
+| WeChat | Beta | `WECHAT_WEBHOOK_URL` (webhook) or `WECHAT_CORP_ID`+`WECHAT_AGENT_ID`+`WECHAT_SECRET` (app) |
+| IRC | Stable | `IRC_SERVER`+`IRC_NICK`+`IRC_CHANNELS` |
+| WhatsApp | Beta | `WHATSAPP_ENABLED=true` (QR code pairing) |
+| Matrix | Beta | `MATRIX_HOMESERVER`+`MATRIX_ACCESS_TOKEN` |
+| LINE | Beta | `LINE_CHANNEL_ACCESS_TOKEN` (webhook at `/api/line/webhook`) |
+| Google Chat | Beta | `GOOGLE_CHAT_WEBHOOK_URL` (webhook at `/api/google-chat/webhook`) |
+| Signal | Experimental | `SIGNAL_SERVER_URL`+`SIGNAL_PHONE_NUMBER` (requires signal-cli-rest) |
+| Teams | Experimental | `TEAMS_BOT_ID`+`TEAMS_BOT_PASSWORD` (webhook at `/api/teams/webhook`) |
+| iMessage | Experimental | `IMESSAGE_BUSINESS_ID`+`IMESSAGE_API_ENDPOINT` (webhook at `/api/imessage/webhook`) |
+| Feishu | Beta | `FEISHU_APP_ID`+`FEISHU_APP_SECRET` (webhook at `/api/feishu/webhook`) |
 
 ## Creating Skills
 
