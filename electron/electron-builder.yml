@@ -1,47 +1,71 @@
 appId: com.mix.desktop
 productName: MIX Agent
-publish:
-  provider: github
-  owner: baishen666-pj
-  repo: MIX
+copyright: Copyright © 2026 MIX
 directories:
   buildResources: build
   output: dist
 files:
   - out/**/*
-  - "!src/**/*"
-  - "!electron.vite.config.{js,ts,mjs,cjs}"
-  - "!{tsconfig.json,eslint.config.*,README.md}"
+  - '!**/.vscode/*'
+  - '!**/.claude/*'
+  - '!src/*'
+  - '!docs/*'
+  - '!dist/*'
+  - '!electron.vite.config.*'
+  - '!vitest.config.*'
+  - '!playwright.config.*'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md,CLAUDE.md}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,eslint.config.cjs}'
+  - '!{package-lock.json}'
+  - '!**/__tests__/*'
+  - '!**/*.test.ts'
+  - '!**/*.test.tsx'
+  - '!**/*.spec.ts'
+  - '!**/*.spec.tsx'
+  - '!node_modules/.vite/*'
+  - '!node_modules/.cache/*'
 asarUnpack:
-  - "**/*.node"
+  - resources/**
+  - '**/*.node'
+  - node_modules/better-sqlite3/**
 extraResources:
   - from: ../dist/mix-engine
     to: engine
     filter:
-      - "**/*"
+      - '**/*'
   - from: ../gateway/bundle
     to: gateway
     filter:
-      - "**/*"
+      - '**/*'
   - from: resources/splash.html
     to: splash.html
   - from: build/icon-16.png
     to: tray-icon.png
 win:
   executableName: mix-agent
+  icon: build/icon.ico
   target:
-    - nsis
+    - target: nsis
+      arch:
+        - x64
+  signAndEditExecutable: true
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
-  createDesktopShortcut: always
-  oneClick: true
+  oneClick: false
   perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  artifactName: MIX-Agent-Setup-${version}.${ext}
+  shortcutName: MIX Agent
+  uninstallDisplayName: MIX Agent
+  createDesktopShortcut: always
 mac:
   icon: build/icon.icns
   category: public.app-category.productivity
-  artifactName: ${name}-${version}-mac.${ext}
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSDocumentsFolderUsageDescription: 'MIX needs access to the Documents folder to save and load agent configurations.'
+  notarize: false
+  artifactName: MIX-Agent-${version}-mac.${ext}
   target:
     - dmg
 linux:
@@ -49,7 +73,13 @@ linux:
   target:
     - AppImage
     - deb
-  category: Utility
+  maintainer: MIX
+  category: Development
   synopsis: Unified AI agent platform
-  artifactName: ${name}-${version}-linux.${ext}
+  artifactName: MIX-Agent-${version}-linux.${ext}
+publish:
+  provider: github
+  owner: baishen666-pj
+  repo: MIX
+  releaseType: release
 npmRebuild: false

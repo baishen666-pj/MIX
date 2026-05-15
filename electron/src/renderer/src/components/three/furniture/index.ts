@@ -1,0 +1,8 @@
+export { FurnitureDefs } from './FurnitureDefs'
+export { IsoDesk } from './IsoDesk'
+export { IsoMonitor } from './IsoMonitor'
+export { IsoChair } from './IsoChair'
+export { IsoRoundTable } from './IsoRoundTable'
+export { IsoSofa } from './IsoSofa'
+export { IsoPlant } from './IsoPlant'
+export { IsoCoffeeTable } from './IsoCoffeeTable'
