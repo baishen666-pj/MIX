@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { SseCallbacks } from '../sse-parser'
 
-const { mockGetActiveProvider, mockNetRequest } = vi.hoisted(() => ({
+const { mockGetActiveProvider, mockGetConnectionConfig, mockNetRequest } = vi.hoisted(() => ({
   mockGetActiveProvider: vi.fn(),
+  mockGetConnectionConfig: vi.fn(() => ({ connectionMode: 'direct' })),
   mockNetRequest: vi.fn()
 }))
 
@@ -13,7 +14,8 @@ vi.mock('electron', () => ({
 }))
 
 vi.mock('../config', () => ({
-  getActiveProvider: mockGetActiveProvider
+  getActiveProvider: mockGetActiveProvider,
+  getConnectionConfig: mockGetConnectionConfig
 }))
 
 import { sendMessage } from '../chat'

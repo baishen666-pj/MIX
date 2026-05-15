@@ -1,7 +1,7 @@
 import { net } from 'electron'
 import { parseSseBlock, processSseData, processCustomEvent } from './sse-parser'
 import type { SseCallbacks } from './sse-parser'
-import { getActiveProvider } from './config'
+import { getActiveProvider, getConnectionConfig } from './config'
 import { getStrategy } from './providers/registry'
 import type { ProviderConfig } from '../shared/types'
 import { listToolSpecs, executeTool } from './tools/registry'
@@ -37,6 +37,12 @@ function specToToolDef(spec: ToolSpec): ToolDefinition {
 const MAX_RETRIES = 2
 
 export function sendMessage(opts: SendMessageOptions, cb: SseCallbacks): AbortController {
+  const config = getConnectionConfig()
+
+  if (config.connectionMode === 'server') {
+    return sendServerMessage(opts, cb, config.gatewayUrl || 'http://127.0.0.1:18789')
+  }
+
   const controller = new AbortController()
   const provider = getActiveProvider()
   const strategy = getStrategy(provider.type)
@@ -239,6 +245,12 @@ export function sendMessageWithLoop(
   opts: SendMessageLoopOptions,
   cb: LoopCallbacks
 ): AbortController {
+  const config = getConnectionConfig()
+
+  if (config.connectionMode === 'server') {
+    return sendMessage(opts, cb)
+  }
+
   const controller = new AbortController()
   let loopCount = 0
   const maxLoops = opts.maxLoopCount ?? MAX_TOOL_LOOP
@@ -399,5 +411,76 @@ export function sendMessageWithLoop(
   }
 
   loop(opts.messages)
+  return controller
+}
+
+function sendServerMessage(
+  opts: SendMessageOptions,
+  cb: SseCallbacks,
+  gatewayUrl: string
+): AbortController {
+  const controller = new AbortController()
+  const lastMessage = opts.messages[opts.messages.length - 1]
+  const message = typeof lastMessage?.content === 'string' ? lastMessage.content : ''
+
+  const url = `${gatewayUrl}/api/chat/stream?message=${encodeURIComponent(message)}`
+  const request = net.request({ method: 'GET', url })
+
+  let buffer = ''
+  const state = { hasContent: false, lastError: '' }
+
+  request.on('response', (response) => {
+    if (response.statusCode !== 200) {
+      let errorBody = ''
+      response.on('data', (chunk: Buffer) => { errorBody += chunk.toString() })
+      response.on('end', () => {
+        let msg = `HTTP ${response.statusCode}`
+        try {
+          const parsed = JSON.parse(errorBody)
+          msg = parsed.error || parsed.message || msg
+        } catch { /* noop */ }
+        cb.onError?.(msg)
+      })
+      return
+    }
+
+    response.on('data', (chunk: Buffer) => {
+      if (controller.signal.aborted) return
+      buffer += chunk.toString('utf-8')
+      const blocks = buffer.split('\n\n')
+      buffer = blocks.pop() || ''
+
+      for (const block of blocks) {
+        if (!block.trim()) continue
+        const parsed = parseSseBlock(block)
+        if (!parsed) continue
+        if (parsed.data === '[DONE]') { request.abort(); return }
+        const result = processSseData(parsed.data, cb, state)
+        if (result.done) { request.abort(); return }
+      }
+    })
+
+    response.on('end', () => {
+      if (buffer.trim()) {
+        const parsed = parseSseBlock(buffer)
+        if (parsed && parsed.data !== '[DONE]') processSseData(parsed.data, cb, state)
+      }
+      if (state.hasContent) cb.onDone?.()
+    })
+
+    response.on('error', (err) => cb.onError?.(err.message))
+  })
+
+  request.on('error', (err) => {
+    if (!controller.signal.aborted) cb.onError?.(err.message)
+  })
+
+  if (controller.signal.aborted) {
+    request.abort()
+  } else {
+    controller.signal.addEventListener('abort', () => request.abort())
+    request.end()
+  }
+
   return controller
 }
