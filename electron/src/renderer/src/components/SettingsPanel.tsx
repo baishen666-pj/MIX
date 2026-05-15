@@ -19,6 +19,8 @@ const PROVIDER_ICONS: Record<string, string> = {
 
 export function SettingsPanel() {
   const [locale, setLocalLocale] = useState<AppLocale>('zh-CN')
+  const [connectionMode, setConnectionMode] = useState<'server' | 'direct'>('direct')
+  const [gatewayUrl, setGatewayUrl] = useState('http://127.0.0.1:18789')
   const [providers, setProviders] = useState<ProviderConfig[]>([])
   const [activeId, setActiveId] = useState('zhipu')
   const [editingProvider, setEditingProvider] = useState<ProviderConfig | null>(null)
@@ -33,13 +35,15 @@ export function SettingsPanel() {
     window.mixDesktop.getConnectionConfig().then((config: ConnectionConfig) => {
       setProviders(config.providers ?? [])
       setActiveId(config.activeProviderId ?? 'zhipu')
+      setConnectionMode(config.connectionMode ?? 'direct')
+      setGatewayUrl(config.gatewayUrl ?? 'http://127.0.0.1:18789')
     }).catch(() => {})
   }, [])
 
   const handleSave = useCallback(async () => {
     if (!window.mixDesktop) return
     try {
-      await window.mixDesktop.setConnectionConfig({ providers, activeProviderId: activeId })
+      await window.mixDesktop.setConnectionConfig({ providers, activeProviderId: activeId, connectionMode, gatewayUrl })
       await window.mixDesktop.setLocale(locale)
       if (editingProvider) {
         await window.mixDesktop.updateProvider(editingProvider)
@@ -78,6 +82,47 @@ export function SettingsPanel() {
 
       <div className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto max-w-lg space-y-6">
+
+          {/* Connection Mode */}
+          <section>
+            <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-content-subtle">
+              连接模式
+            </h3>
+            <div className="rounded-lg border border-border-subtle bg-surface-primary p-3 space-y-3">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConnectionMode('server')}
+                  className={`flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                    connectionMode === 'server'
+                      ? 'bg-accent text-white'
+                      : 'bg-surface-secondary text-content-secondary hover:bg-surface-hover'
+                  }`}
+                >
+                  Server 模式
+                </button>
+                <button
+                  onClick={() => setConnectionMode('direct')}
+                  className={`flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                    connectionMode === 'direct'
+                      ? 'bg-accent text-white'
+                      : 'bg-surface-secondary text-content-secondary hover:bg-surface-hover'
+                  }`}
+                >
+                  Direct 模式
+                </button>
+              </div>
+              {connectionMode === 'server' && (
+                <div className="text-xs text-content-secondary">
+                  通过 MIX Gateway ({gatewayUrl}) 连接 Engine
+                </div>
+              )}
+              {connectionMode === 'direct' && (
+                <div className="text-xs text-content-secondary">
+                  直连 LLM Provider API，无需本地服务
+                </div>
+              )}
+            </div>
+          </section>
 
           {/* API Provider */}
           <section>
