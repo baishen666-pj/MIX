@@ -285,7 +285,8 @@ def _mock_httpx(html: str, status_code: int = 200):
 class TestScraperExecute:
     @pytest.mark.asyncio
     async def test_text_extraction(self):
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
             result = await execute(url="https://example.com")
             assert result.success
             data = json.loads(result.output)
@@ -294,7 +295,8 @@ class TestScraperExecute:
 
     @pytest.mark.asyncio
     async def test_selector_extraction(self):
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
             result = await execute(
                 url="https://example.com",
                 selectors={"headings": "h1"},
@@ -306,7 +308,8 @@ class TestScraperExecute:
 
     @pytest.mark.asyncio
     async def test_extract_links(self):
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
             result = await execute(url="https://example.com", extract_links=True)
             assert result.success
             data = json.loads(result.output)
@@ -315,7 +318,8 @@ class TestScraperExecute:
 
     @pytest.mark.asyncio
     async def test_extract_images(self):
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
             result = await execute(url="https://example.com", extract_images=True)
             assert result.success
             data = json.loads(result.output)
@@ -324,7 +328,8 @@ class TestScraperExecute:
 
     @pytest.mark.asyncio
     async def test_jsonld_extraction(self):
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
             result = await execute(url="https://example.com")
             assert result.success
             data = json.loads(result.output)
@@ -333,7 +338,8 @@ class TestScraperExecute:
     @pytest.mark.asyncio
     async def test_text_truncation(self):
         long_html = f"<html><body><p>{'x' * 10000}</p></body></html>"
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(long_html)):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(long_html)):
             result = await execute(url="https://example.com")
             assert result.success
             data = json.loads(result.output)
@@ -347,7 +353,8 @@ class TestScraperExecute:
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client.get = AsyncMock(side_effect=ConnectionError("Network error"))
 
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=mock_client):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=mock_client):
             result = await execute(url="https://example.com")
             assert not result.success
             assert "Fetch failed" in result.error
@@ -362,20 +369,23 @@ class TestScraperExecute:
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=mock_client):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=mock_client):
             result = await execute(url="https://example.com/notfound")
             assert not result.success
 
     @pytest.mark.asyncio
     async def test_user_agent_header(self):
         mock = _mock_httpx(SAMPLE_HTML)
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=mock):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=mock):
             await execute(url="https://example.com")
             call_kwargs = mock.get.call_args
             assert call_kwargs.kwargs["headers"]["User-Agent"] == "MIX/1.0"
 
     @pytest.mark.asyncio
     async def test_kwargs_ignored(self):
-        with patch("engine.tools.scraper.validate_url"), patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
+        with patch("engine.tools.scraper.validate_url"), \
+             patch("engine.tools.scraper.httpx.AsyncClient", return_value=_mock_httpx(SAMPLE_HTML)):
             result = await execute(url="https://example.com", extra="ignored")
             assert result.success
